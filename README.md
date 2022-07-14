@@ -1,2 +1,2 @@
-# cra-template-vista
-React App Template For Vista
+# vista JS
+JS Implementation of Vista Model
