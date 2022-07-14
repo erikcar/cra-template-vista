@@ -1,2 +1,2 @@
-# vista JS
-JS Implementation of Vista Model
+# vista
+JS Implementation of Vista Model and vista web app framework application Libraries
