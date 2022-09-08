@@ -1,0 +1,27 @@
+{
+  "name": "cra-template-vista",
+  "version": "1.0.0",
+  "keywords": [
+    "react",
+    "create-react-app",
+    "template",
+    "vista"
+  ],
+  "description": "Vista base template for Create React App.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/erikcar/vista.git",
+    "directory": "packages/cra-template-vista"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  },
+  "bugs": {
+    "url": "https://github.com/erikcar/vista/issues"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ]
+}

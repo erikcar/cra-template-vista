@@ -1,0 +1,59 @@
+@import '~antd/dist/antd.less';
+
+/*Esempio import fonts */
+//@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap');
+
+/*DEFINE MY VARIABLE*/
+@my-color: #ccc;
+@bg-color: #f8f8f8;
+
+@bg-x: #E9EDF5;
+@bg-xx: #181818;
+@radius: 10px;
+
+/*Definire stile hx e oltre*/
+
+
+.layout{
+    height: 100%;
+}
+
+.layout-content{
+    overflow: auto;
+    height: 100vh;
+}
+
+.layout-bg{
+    background-color: @bg-color;
+}
+.sider-menu{
+    margin-top: 18px;
+}
+
+.menu-icon {
+    font-size: 16pt;
+    color: #fff;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 18px;
+  }
+
+/*ANTD STYLE OVERRIDE*/
+.ant-layout{
+    background-color: #fff;
+}
+
+.ant-menu-horizontal {
+    border-bottom: 0; 
+}
+
+.ant-btn-my, .ant-btn-my:focus {
+    background-color: @my-color;
+    color: #000;
+    border-color: #ccc;
+}
+
+.ant-form-item{
+  margin-bottom: 11px;
+}

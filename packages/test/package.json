@@ -1,0 +1,32 @@
+{
+  "name": "@vista/test",
+  "version": "1.0.0",
+  "description": "JS implementation of Vista Model",
+  "main": "dist/test.js",
+  "types": "dist/test.d.ts",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erikcar/vista.git"
+  },
+  "keywords": [
+    "js",
+    "vista"
+  ],
+  "author": "Erik Cardini",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/erikcar/vista/issues"
+  },
+  "homepage": "https://github.com/erikcar/vista#readme",
+  "devDependencies": {
+    "@babel/core": "^7.18.6",
+    "@babel/preset-env": "^7.18.6",
+    "babel-loader": "^8.2.5",
+    "webpack": "^5.73.0",
+    "webpack-cli": "^4.10.0"
+  }
+}

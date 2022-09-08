@@ -1,2 +1,2 @@
-# vista JS
-JS Implementation of Vista Model
+# vista
+Implementation of Vista Model

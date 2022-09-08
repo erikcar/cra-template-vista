@@ -1,0 +1,24 @@
+{
+  "name": "lbn.react",
+  "version": "1.0.0",
+  "description": "LBN React Base App",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erikcar/lbn.git"
+  },
+  "keywords": [
+    "lbn",
+    "react"
+  ],
+  "author": "Erik Cardini",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/erikcar/lbn/issues"
+  },
+  "homepage": "https://github.com/erikcar/lbn#readme"
+}
