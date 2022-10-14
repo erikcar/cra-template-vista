@@ -1,11 +1,52 @@
-import { DataGraph, LinkDirection } from "../DataGraph";
+//import DataQL from "../DataQL";
+import { DataGraph, GraphNode, Link } from "../DataGraph";
+
+const sqlINT = {
+
+}
 
 export function SqlGraph(graph, int) {
-  this.int = int || sqlINT;
+  this.int = int || {};//sqlINT;
   this.translate = function (graph) {
     return graphToSql(graph.root, this.int);
   }
 }
+
+function joinToSql(n, int){
+  console.log("JOIN_TO_SQL", n);
+  let sql = " LEFT JOIN " + n.etype + " ON ";
+  let len = n.condition.length();
+  for (let k = 0; k < len; k++) {
+   
+    const c = n.condition.at(k);
+    if (typeof c === 'string')
+      sql += (int[c] || c);
+    else
+      sql += formatName(c.field, n.etype) + c.operator + "p." + c.value; 
+  }
+  
+  return sql;
+}
+
+function subqeryToSql(n, int){
+  const fields = n.fields.split('#');
+  let sql = " (SELECT " + fields[0] + " FROM " + n.etype + " WHERE ";
+  let len = n.condition.length();
+  for (let k = 0; k < len; k++) {
+   
+    const c = n.condition.at(k);
+    if (typeof c === 'string')
+      sql += (int[c] || c);
+    else
+      sql += formatName(c.field, n.etype) + c.operator + "p." + c.value; 
+  }
+  sql += ") AS " + fields[1]; 
+  
+  console.log("JOIN_TO_SQL", n);
+  return sql;
+}
+
+
 //TODO: In futuro implementare logica per cui ogni node potrebbe avere un inteprete diverso.
 function graphToSql(node, int, skipJSON) {
   int = int || sqlINT;
@@ -13,22 +54,40 @@ function graphToSql(node, int, skipJSON) {
   //const schema = node.schema;
   let columns = formatNames(node.fields, 'p', {}) + ", '" + node.etype + "' as etype ";
 
-  let from = " FROM " + (formatName(node.etype)) + " AS p"; //dql.fromTable || 
+  let from = " FROM " + (DataGraph.config.prefix? DataGraph.config.prefix + '.' : '' ) + (formatName(node.etype)) + " AS p"; //dql.fromTable || 
   //Gestire Children
   if (node.children) {
-    node.groupBy("p.id");
-    let n, col, link;
+    let gby = 0;
+    let n, col, link; let gbfields='';
     for (let k = 0; k < node.children.length; k++) {
       n = node.children[k];
+
+      if(n.name === '#sub')
+      {
+        columns += "," + subqeryToSql(n,int);
+        //formatNames(n.fields, n.etype, {});
+        //from += joinToSql(n, int);
+        continue;
+      }
+
+      if(n.name === '#join')
+      {
+        columns += "," + formatNames(n.fields, n.etype, {});
+        from += joinToSql(n, int);
+        gbfields += n.etype + '.' + n.fields;
+        continue;
+      }
+
+      gby++;
       from += (n.joined ? " INNER JOIN (" : " LEFT JOIN (") + graphToSql(n, int, true) + ") AS t" + k + " ON ";
 
       //Gestione relazione
       link = n.link;
  
-      if (link.direction === LinkDirection.DOWN_WISE) {
+      if (link.direction === Link.DOWN_WISE) {
         from += "p." + link.pk + " = t" + k + "." + link.fk;
       }
-      else if (link.direction === LinkDirection.UP_WISE) {
+      else if (link.direction === Link.UP_WISE) {
         from += "p." + link.fk + " = t" + k + "." + link.pk;
       }
       else{
@@ -46,6 +105,12 @@ function graphToSql(node, int, skipJSON) {
 
       columns += col + " AS " + n.name;
     }
+
+    if(gby>0){
+      node.groupBy("p.id");
+      if(gbfields)node.groupBy(gbfields);
+    } 
+      
   }
 
   sql += columns;
@@ -60,6 +125,8 @@ function graphToSql(node, int, skipJSON) {
     let g = node.graph;
     g.typedef = "";
     g.parameters = [];
+    g.iparameters = [];
+    const itype = DataGraph.getSchema(node.etype);
     for (let i = 1; i < len; i++) {
       c = node.condition.at(i);
       console.log("CONDTION IN PARSER: ", c);
@@ -79,8 +146,10 @@ function graphToSql(node, int, skipJSON) {
           sql += (int[c.fieldProcedure] || c.fieldProcedure) + "(";
 
         if (c.value[0] === '@') {
-          if (DataGraph.isPrefixMode)
+          //if (DataGraph.isPrefixMode)
             g.typedef += c.field[0];
+          //else
+            g.iparameters.push(itype[c.field]);
 
           sql += "$" + g.typedef.length;
           g.parameters.push(formatParameter(g.params[c.value.substr(1)]));//formatValue(g.params[c.value.substr(1)]));
@@ -94,11 +163,16 @@ function graphToSql(node, int, skipJSON) {
           sql += ")";
       }
     }
+
+    if(g.parameters.length === 0){
+      g.parameters = null;
+      g.iparameters = null;
+    }
   }
 
   //GROUP BY
   sql += node.groupby ? (int["GROUPBY"] || " GROUP BY ") + formatNames(node.groupby) : "";
-  sql += node.orderby ? (int["ORDERBY"] || " ORDER BY ") + formatNames(node.orderby, "p") : "";
+  sql += node.orderby ? (int["ORDERBY"] || " ORDER BY ") + formatNames(node.orderby, "p", null, '#') + (node.desc? ' desc ' : '') : "" ;
 
   if (!skipJSON) {
     sql = node.isCollection ? "SELECT json_agg(row_to_json(t.*)) AS items FROM(" + sql + ") as t" : "SELECT row_to_json(t.*) AS item FROM(" + sql + ") as t";
@@ -116,9 +190,7 @@ function cparser(c, prefix, int) {
   return typeof c === 'string' ? (int[c] || c) : (c.not ? " NOT " : " ") + formatName(c.field, prefix) + " " + (int[c.operator] || c.operator) + " " + c.value;//formatValue(c.value);
 }
 
-const sqlINT = {
 
-}
 
 //FOR JSON AUTO; SQL Server to json restituisce sempre array => da gestire
 const sqlParse = {
@@ -222,6 +294,7 @@ function formatField(name, int) {
 }
 
 function formatName(name, prefix, values) {
+  console.log("NAMES", name);
   prefix = prefix ? (prefix + ".") : "";
   let extra = "";
   let isValue;
@@ -230,9 +303,9 @@ function formatName(name, prefix, values) {
     name = name.substr(1);
   }
 
-  if (name.toLowerCase().indexOf(" as ") > -1) {
-    let index = name.toLowerCase().indexOf(" as ");
-    extra = name.substr(index);
+  if (name.toLowerCase().indexOf("#") > -1) {
+    let index = name.toLowerCase().indexOf("#");
+    extra = " AS " + name.substr(index+1);
     name = name.substr(0, index);
   }
 
@@ -256,9 +329,11 @@ function formatNameOrValue(name, prefix, values) {
     return formatName(name, prefix);
 }
 
-function formatNames(names, prefix, values) {
+function formatNames(names, prefix, values, splitter) {
+  splitter = splitter || ',';
   //prefix = prefix? (prefix + '.') : "";
-  const cols = names.split(',');
+  const cols = names.split(splitter);
+  console.log("NAMES", cols);
   let result = formatName(cols[0], prefix, values);
   for (let k = 1; k < cols.length; k++) {
     result += "," + formatName(cols[k], prefix, values);

@@ -1,6 +1,5 @@
 import Search from "antd/lib/input/Search";
-import { Flow } from "../core/Model";
-import { DataGraph, ExecuteQuery } from "../data/DataGraph";
+import { Flow, DataGraph} from "@vista/core";
 
 let paused = false;
 var v;
@@ -27,7 +26,7 @@ export function attachSearch(model, key){
         if(info.remote){
             if(value.length === minlen){
                 paused = true;
-                ExecuteQuery("", {value: value}).then(()=> {paused = false; filter(info, v); });
+                //ExecuteQuery("", {value: value}).then(()=> {paused = false; filter(info, v); });
             }  
         }
         else

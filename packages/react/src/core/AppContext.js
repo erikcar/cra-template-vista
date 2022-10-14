@@ -1,53 +1,70 @@
-import { Vista } from '@vista/core';
+//import { VistaApp } from '@vista/core';
+import { VistaApp, DataGraph, AppModel } from '@vista/core';
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+//import { useNavigate, useSearchParams } from '../../node_modules/react-router-dom/dist/index';
+import { useNavigate, useSearchParams } from 'react-router-dom'; 
 
-import { openPopup } from '../components/Popup';
-import { isReactComponent } from './core';
+//import { useNavigate, useSearchParams } from 'react-router-dom';
+
 
 export const AppContext = React.createContext(null);
 
 //Posso fare un object login {component: , request: , path: } oppure scelgo in base a tipo login (React component, function or string)
-export const AppProvider = ({ init, schema, login, noBreakPoint, children }) => {
+export const AppProvider = ({ init, schema, onlogin, baseurl, control, children }) => {
 
     console.log("APP PROVIDER");
 
-    const nav = useNavigate(); 
+    const navigator = useNavigate();
+    const [qp] = useSearchParams(); 
+    console.log("APP PROVIDER NAV");
+    const [app, updateApp] = useState(()=>{
+        return VistaApp.init(navigator, control, onlogin);
+        //return Vist
+    });
+    console.log("APP PROVIDER STATE");
+    /*if(qp.has("fareq")){
+        app.irequest = {type: 'FA', data: qp};
+    }*/
 
-    const [app, updateApp] = useState({current: Vista.InitApp(nav, init)});
-    
+    const oninit = useRef(()=>{
+        //Devo scambiare ordine??? cioè prima faccio check session?
+        if (init) 
+            init(VistaApp);
+        if(!VistaApp.irequest) 
+            app.model.request(AppModel, m=>m.checkSession(app));
+    });
+
+    console.log("APP PROVIDER", app);
+
+    if (schema && !DataGraph.schema.DEFAULT) schema();
+
+    if (!app.initialized) {
+
+        VistaApp.refresh = () => { 
+            updateApp({...VistaApp});
+        }
+
+        //Prima di init e che avvenga prima chiamata api
+        VistaApp.icontainer.service.IApi.onManagedError = e => {
+            VistaApp.control.openPopup(<div>{e.message}</div>, "ATTENZIONE");
+        }
+
+        VistaApp.icontainer.service.IApi.onError = e => {
+            VistaApp.control.openPopup(<div>{e}</div>, "ATTENZIONE");
+        }
+
+        if(baseurl) VistaApp.icontainer.service.IApi.channel.setBaseurl(baseurl);
+        //axios.defaults.withCredentials = true;
+        app.initialized = true;
+    }
+
     useEffect(() => {
-        console.log("EFFECT APP SCHEMA");
-        if (schema) schema();
-    }, [schema]);
+        oninit.current();
+    }, []);
 
     useEffect(() => {
-        console.log("EFFECT APP BREAK-POINT");
-        const App = app.current;
-        !noBreakPoint && (App.onbreakpoint = (info, media, breakpoint) => {
-            updateApp({...app});
-        });
-    }, [noBreakPoint]);
-
-    useEffect(() => {
-        console.log("EFFECT APP LOGIN");
-        
-        const App = app.current;
-
-        if(App.login)
-            App.model.Unscribe("LOGIN-REQUEST", App.login); 
-        
-        const ln = login; // || <AppLogin />; (Default Login)
-
-        App.login = isReactComponent(ln) || typeof ln === "string" ? (path) => {
-            typeof ln === "string"
-                ? App.navigate(ln, path)
-                : openPopup(ln, "Login", path);
-        } : ln;
-
-        App.model.Subscribe("LOGIN-REQUEST", App.login);
-
-    }, [login]); //Se è component ripassa ad ogni rendering ???
+        VistaApp.current = app;
+    }, [app]);
 
     return (
         <AppContext.Provider value={app} >

@@ -2,29 +2,40 @@ import React from "react";
 import { Children, useEffect } from "react";
 import { useRef } from "react";
 import { Context } from "@vista/core";
-import { useModel } from "../hook/VistaHook";
+import { useControl, useModel } from "../hook/SystemHook";
 
 export const VistaContext = React.createContext(null);
 
-export default function Vista({ children, context }) {
+export function Vista({ children, context }) {
+    //const context = context;
+
     if (!context)
         throw new Error("Vista must define a unique id value");
 
     //const context = useRef(new Context(id));
-    useEffect(() => { const ctx = context.current; return () => ctx.dispose() }, [])
-    console.log("VISTA", context.current);
+    useEffect(() => { const ctx = context; return () => ctx.dispose() }, [context])
+    console.log("VISTA", context);
     return (
-        <VistaContext.Provider value={context.current} >
+        <VistaContext.Provider value={context} >
             {children}
         </VistaContext.Provider>
     )
 }
 
-export function useVista(id, modelType, info, etype) {
+export function useVistaOld(id, modelType, info, etype) {
     const context = useRef(new Context(id));
     const [model, source] = useModel(modelType, info, etype, context.current); 
     console.log("USE VISTA:", model);
     return [context, model, source];
+}
+
+export function useVista(controllerType, info, name) {
+    const context = useRef(new Context(name || controllerType.name));
+    //graph.context = context.current;
+    //useControl(controller)
+    const [c] = useControl(controllerType, context.current); 
+    console.log("USE VISTA:", c);
+    return [context.current, c];
 }
 
 function VistaRender({ node, ...rest }) {
@@ -58,6 +69,7 @@ export function Empty(){
     console.log("EMPTY RENDER");
     return null;
 }
+
 /*   //Per ogni children passo info in base a ID? e se delle view hanno stesso id => importante non ce ne siano allo stesso livello
    //console.log("CHILDREN", children, props);
    if(Array.isArray(children) === undefined)

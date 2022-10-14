@@ -19,13 +19,5 @@
   "homepage": "https://github.com/erikcar/vista#readme",
   "workspaces": [
     "./packages/*"
-  ],
-
-  "devDependencies": {
-    "@babel/core": "^7.18.10",
-    "@babel/preset-env": "^7.18.10",
-    "@vista/react": "file:packages/react",
-    "babel-loader": "^8.2.5",
-    "react-router-dom": "^6.3.0"
-  }
+  ]
 }

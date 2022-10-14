@@ -10,7 +10,7 @@ import { AppContext, useApp } from "../core/AppContext";
  * @param {*} param0 
  * @returns 
  */
-export default function Accessible({ id, state, states, userAs, includeIn, includeIf, context, children, ...rest }) {
+export function Accessible({ id, state, states, userAs, includeIn, includeIf, context, children, ...rest }) {
 
     const ctx = useContext(context || AppContext);
 

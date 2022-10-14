@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import moment from 'moment';
 
 const eFormat = { TO: 2, FROM: 1, TO_AND_FROM: 3 }
 
@@ -16,7 +17,14 @@ export const Format = {
   currencyParse: function (value) {
     console.log("CURRENCY PARSE");
     return value.replace(/\€\s?|(\.*)/g, '').replace(',','.');//value.replace(/\€\s?|(,*)/g, '');//Number(value.replace(/[^0-9\,-]+/g,"").replace(',','.'));
+  },
+
+  moment: function(v, f){
+    f = f || 'DD-MM-YYYY';
+    if(v instanceof moment) return v.format(f);
+    return moment(v).format(f);
   }
+
 }
 
 export function currencyFormatter(format) {

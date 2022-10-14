@@ -1,6 +1,6 @@
-import { Input } from "antd";
+import { Input, Select } from "antd";
 import { useEffect, useRef } from "react";
-
+const { Option } = Select;
 const data = [
     {
       title: "Title 10",
@@ -81,7 +81,7 @@ function SourceFilter(field, waiting , digits, async, onDigits){
     }
 }
 
-export default function InputFilter({ setter, source, field, waiting , digits, async, onDigits, ...prop}){
+export function InputFilter({ setter, source, field, waiting , digits, async, onDigits, ...prop}){
 
     const filter = useRef();
     
@@ -107,3 +107,38 @@ export default function InputFilter({ setter, source, field, waiting , digits, a
         <Input onChange={onChange} {...prop}></Input>
     );
 }
+
+
+export function SelectFilter({digits, options, onDigits, ...rest}){
+    const ref = useRef(null);
+    digits = digits || 3;
+    options = options || [{label: 'A', value: 'A'}];
+    const len = useRef(0);
+    //console.log("SELECT FILTER", options);
+    const onchange = (e) =>{
+        console.log("Select CHANGED", e);
+        const l = e.length;
+        if(l > len.current && l === digits && onDigits)
+            onDigits(e);
+        len.current = l;
+    }
+
+    const onselect = (value, option) => {
+        console.log("PASSA", value, option, ref.current);//e.target.id, form.target.getFieldsValue(e.target.id), e.target);
+        //const evt = new Event("onSelect", {item: option});
+        const evt = new CustomEvent('oselect', {
+            bubbles: true,
+            detail: {item: option, field: ref.current.id}
+          });
+
+        ref.current.dispatchEvent(evt);
+        //const values = form.target.getFieldsValue(true);
+        //model.Publish("OBSERVABLE", "onblur", { field: e.target.id, value: values[e.target.id], values: values });
+    };
+//{(input, option) => option.children.includes(input)}
+    return(
+        <Select  labelInValue={true} onFocus={(e)=> ref.current = e.target}  onSelect={onselect} {...rest } showSearch onSearch={onchange} options={options} optionFilterProp="label" filterOption="true">
+        </Select>
+    )
+}
+

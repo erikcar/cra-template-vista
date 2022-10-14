@@ -6,7 +6,8 @@ module.exports = {
     path: path.resolve(__dirname, './dist'),
     filename: 'vista.react.js',
     library: 'vista',
-    libraryTarget: 'umd'
+    libraryTarget: 'umd',
+    clean: true
   },
   module: {
     rules: [{
@@ -15,8 +16,9 @@ module.exports = {
       use: 'babel-loader',
     }],
   },
-  externals: {
+ externals: {
     antd: 'antd',
-    dom: 'react-router-dom'
+    dom: 'react-router-dom',
+    react: 'react'
   },
 };

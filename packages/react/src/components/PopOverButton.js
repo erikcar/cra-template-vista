@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { Button, Popover } from "antd";
-import {Model} from "@vista/core"
-import { useModel } from "../hook/VistaHook";
+import { useModel } from "../hook/SystemHook";
+
 
 /**
  * 
- * @param {Model} model 
+ * @param {EntityModel} model 
  */
 function PopOverButtonModel(model){
     model.Subscribe("SELECTION", () => model.state.setVisible(false), null, null);
 }
 
 export function PopOverButton(info) {
-    const [model] = useModel(PopOverButtonModel, info);
+    const [model] = useModel();
     model.state = {};
     [model.state.visible, model.state.setVisible] = useState(false);
 

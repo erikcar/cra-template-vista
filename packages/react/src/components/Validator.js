@@ -1,9 +1,11 @@
 import { Form } from "antd";
 import React from "react";
 
-export default function Validator({ schema, children }) {
-  if (schema && children.type.Item && children.type.Item.name === "FormItem") {
+export function Validator({ schema, children }) {
+  console.log("VALIDATOR IS FORM", children.type);
+  if (schema && children){ //.type.Item && children.type.Item.name === "FormItem") {
       console.log("VALIDATOR IS FORM", children.props)
+    let obj ={};
     return (
       <Form {...children.props}>
         {React.Children.map(children.props.children, (child) => {
@@ -13,7 +15,7 @@ export default function Validator({ schema, children }) {
             ? React.createElement(child.type, {
                 ...{
                   ...child.props,
-                  rules: [({ getFieldValue }) => ({validator(_, value) {let obj ={}; obj[child.props.name] = value; return schema.validateAt(child.props.name, obj);},}),],
+                  rules: [({ getFieldValue }) => ({validator(_, value) { obj[child.props.name] = value; return schema.validateAt(child.props.name, obj);},}),],
                 },
               })
             : child;
