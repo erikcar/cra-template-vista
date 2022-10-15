@@ -1116,7 +1116,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
           : { id: item.id });
       }
       return Apix.call("api/jdelete", node, { excludeParams: true }).then(()=>{
-        const source = this.isRoot()?this.source : searchData(this.graph.root.source, items[0], this.path)?.parent[this.name];
+        this.remove(items[0]);
+        /*const source = this.isRoot()?this.source : searchData(this.graph.root.source, items[0], this.path)?.parent[this.name];
         if(Array.isArray(source)){
           for( var i = 0; i < source.length; i++){ 
             if ( source[i].id === items[0]) { 
@@ -1125,7 +1126,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
             }
           }
         }
-        this.refresh();
+        this.refresh();*/
       }).catch((er) => {
         console.log(er);
         //openPopup(<div>Si è verificato un errore si prega di riprovare.</div>, "Errore", "OK");
@@ -1133,6 +1134,22 @@ export function GraphNode(name, uid, parent, graph, etype) {
       
       );
     }
+  }
+
+  this.remove = function(index){
+    if(isNaN(index))
+      index = index.id;
+
+    const source = this.isRoot()?this.source : searchData(this.graph.root.source, index, this.path)?.parent[this.name];
+    if(Array.isArray(source)){
+      for( var i = 0; i < source.length; i++){ 
+        if ( source[i].id === index) { 
+            source.splice(i, 1);
+            break;
+        }
+      }
+    }
+    this.refresh();
   }
 
   this.notify = function () {
