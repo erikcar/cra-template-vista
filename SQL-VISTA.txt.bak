@@ -1,0 +1,7 @@
+********** SELECT NN AS Json Array *******************
+
+SELECT (SELECT json_agg(row_to_json(t.*)) FROM ( 
+	SELECT s.* FROM(SELECT jsonb_array_elements::integer as sid FROM jsonb_array_elements(jskill)) as u
+	LEFT JOIN skill as s ON u.sid=s.id
+		  )t) as skills
+FROM users

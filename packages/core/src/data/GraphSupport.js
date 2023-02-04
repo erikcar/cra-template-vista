@@ -1,4 +1,4 @@
-import { isString } from "@webground/core";
+import { isString } from "@essenza/webground";
 import { DoubleLink, BottomLink, DataGraph, GraphNode, Link, TopLink, SourcePath } from "./DataGraph";
 
 export function searchData(items, value, path, pdec, field, start) {
@@ -165,9 +165,10 @@ function MoreThen(field) {
   this.checker = function (item) { return item[this.field] > this.value; }
 }
 
-function schemaParser(schema, isCollection, deep, condition) {
+function schemaParser(schema, isCollection, deep, condition, link) {
   if (isString(schema)) return schema;
-  let s = schema.__name + ':' + (isCollection?'[' + schema.__etype + ']' : schema.__etype) + (condition? '(' + condition + ')':'') + '{';
+  link = link || '';
+  let s = schema.__name + ':' + link + (isCollection?'[' + schema.__etype + ']' : schema.__etype) + (condition? '(' + condition + ')':'') + '{';
 
   for (const key in schema) {
     if (Object.hasOwnProperty.call(schema, key)) {
@@ -177,12 +178,18 @@ function schemaParser(schema, isCollection, deep, condition) {
 
       //s += key;
 
-      const p = schema[key];
+      let p = schema[key];
 
       if (isNaN(p)){
         if(deep){
+          let link = '';
+          if(p.indexOf('=>')>-1){
+            const ar = p.split('=>')
+            link = ar[0];
+            p = ar[1];
+          }
           const path = new SourcePath(key + ':' + p);
-          s += schemaParser(DataGraph.getSchema(path), path.isCollection, deep);
+          s += schemaParser(DataGraph.getSchema(path), path.isCollection, deep, null, link);
         }
       }
       else
@@ -204,7 +211,7 @@ function fragmentParser(query) {
 }
 
 export function GraphParser(graph) {
-
+  console.log("GRAPH-PARSE", graph);
   if (!isString(graph.query))
     graph.query = schemaParser(graph.query, graph.isCollection, graph.deep, graph.condition);
   //graph.query = fragmentParser(graph);

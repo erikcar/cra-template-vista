@@ -1,6 +1,6 @@
 {
-  "name": "@vista/core",
-  "version": "1.0.0",
+  "name": "@essenza/core",
+  "version": "1.0.6",
   "description": "JS implementation of Vista Model",
   "module": "dist/vista.js",
   "types": "dist/vista.d.ts",
@@ -31,6 +31,6 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
-    "@webground/core": "file:../../../webground/packages/core"
+    "@essenza/webground": "^1.0.5"
   }
 }

@@ -1,0 +1,333 @@
+@use "sass:map";
+@import "variable";
+@import "function";
+
+
+@mixin make-map($name: null, $property: null, $map: null){
+    @if($property and $map){
+        @each $key, $value in $map {
+            .#{$name}-#{$key}{
+                #{$property}: $value;
+                @content;
+            }
+        }
+    }
+}
+
+@mixin make-map-double($name: null, $property: null, $extra-property:null, $map: null){
+    @if($property and $map){
+        @each $key, $value in $map {
+            .#{$name}-#{$key}{
+                #{$property}: $value;
+                #{$extra-property}: $value;
+            }
+        }
+    }
+}
+
+@mixin font-family($fonts){
+    @each $key, $value in $fonts {
+        .#{$key}{
+            font-family: $value,system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+    }
+}
+
+@mixin make-layout-block($name: 'header', $height: $header-height, $shadow: true, $border: false) {
+    .#{$prefix}-#{$name} {
+        font-weight: $font-weight-bolder;
+        font-size: $font-size-lg;
+        background: $bg-header 0% 0% no-repeat padding-box;
+        height: $height;
+        padding: 0 map.get($spacers, "md");
+        margin: 0;
+        z-index: 2;
+
+        @if $shadow {
+            box-shadow: 0px 5px 40px #19285729;
+        }
+
+        @if $border {
+            border-style: solid;
+            border-width: 0 0 1px 0;
+            border-color: $tertiary-color;
+        }
+
+        @media (max-width: $max-width-mobile) {
+            padding: 0 map.get($spacers, "sm");
+        }
+
+        @media (min-width: $max-width-laptop) {
+            padding: 0 map.get($spacers, "lg");
+        }
+
+        svg {
+            font-size: $icon-size;
+            vertical-align: middle;
+        }
+
+        img {
+            vertical-align: middle;
+            max-height: $height;
+        }
+
+    }
+}
+
+@mixin es-header($shadow: true, $border: false) {
+    //border, font size, font weight
+    @include make-layout-block('header', $header-height, $shadow, $border);
+}
+
+@mixin es-header-sm($shadow: true, $border: false) {
+    @include make-layout-block('header', $header-height-sm, $shadow, $border);
+}
+
+@mixin es-header-lg($shadow: true, $border: false) {
+    @include make-layout-block('header', $header-height-lg, $shadow, $border);
+}
+
+@mixin es-selection($selected: $primary-color, $unselected: $auxiliary-color) {
+
+    //todo: mask su over
+    .sel {
+        color: $selected;
+        background-color: $selected;
+
+        svg path {
+            fill: $selected;
+        }
+    }
+
+    .unsel {
+        color: $unselected;
+        background-color: $unselected;
+
+        svg path {
+            fill: $unselected;
+        }
+
+        &:hover {
+            color: $selected;
+            background-color: $selected;
+
+            svg path {
+                fill: $selected;
+            }
+        }
+    }
+}
+
+@mixin make-directional-prop($property:'margin',$alias:'m', $directions: $direction){
+    @each $dir, $dlabel in $directions {
+        @each $label, $value in $spacers {
+            .#{$alias}#{$dlabel} {
+                &-#{$label} {
+                    @if $dir == vertical {
+                        #{$property}-top: $value;
+                        #{$property}-bottom: $value;
+                    }
+                    @else if $dir == horizontal {
+                        #{$property}-left: $value;
+                        #{$property}-right: $value;
+                    }
+                    @else{
+                        #{$property}-#{$dir}: $value;
+                    }
+                }	
+            }
+        }
+    }
+    
+    @each $label, $value in $spacers {
+        .#{$property} {
+            &-#{$label} {
+                #{$property}: $value;
+            }	
+        }
+    }
+}
+
+@mixin make-button($name, $bg-color: $primary-color, $bg-swap: null, $border-color: null, $disabled-color: null) {
+    $color: map.get($colors-pair, $bg-color);
+    $swap-color: null;
+
+    @if not $color {
+        $color: text-clear($bg-color);
+    }
+
+    $border-swap: null;
+
+    @if $border-color {
+        $border-swap: $border-color;
+        $bg-swap: $border-color;
+    }
+    @else if $btn-bordered {
+        $border-color: $btn-bordered;
+        $border-swap: $btn-bordered;
+    }
+    @else {
+        $border-color: $bg-color;
+        $border-swap: $bg-swap;
+    }
+
+    @if not $bg-swap  {
+        
+        @if(color-contrast($bg-color) != $color-contrast-light ){
+            $bg-swap: shade-color($bg-color, $btn-shade-amount);
+            $swap-color: text-clear($color);
+        }
+        @else{
+            $bg-swap: shade-color($bg-color, $btn-tint-amount);
+            $swap-color: $color;
+        }
+    }
+    @else{
+        $swap-color: map.get($colors-swap, $bg-swap);
+        @if not $swap-color {
+            $swap-color: text-clear($bg-swap);
+        }
+    }
+    
+    .btn-#{$name}, .btn-#{$name}.ant-btn-default:not(:disabled):hover {
+        background-color: $bg-color;
+        color: $color;
+        font-weight: $font-weight-bolder;
+        border-color: $border-color;
+
+        @content;
+
+        &:hover {
+            background-color: $bg-swap;
+            color: $swap-color;
+            border-color: $border-swap;
+        }
+
+        &:focus {
+            background-color: $bg-swap;
+            color: $swap-color;
+            border-color: $border-swap;
+        }
+
+        @if $disabled-color{
+            &[disabled],
+            &[disabled]:hover {
+                background-color: $disabled-color;
+                color: text-clear($disabled-color);
+                border-color: $disabled-color;
+            }
+        }
+    }
+}
+
+@mixin make-hoverable($name, $bg-color: $primary-color, $swap-color: $swap-color, $border-color: null, $disabled-color: null) {
+    $color: map.get($colors-pair, $bg-color);
+    $sw-color: map.get($colors-swap, $swap-color);
+    
+    @if not $color {
+        $color: text-clear($bg-color);
+    }
+
+    @if not $sw-color {
+        $swap-color: text-clear($swap-color);
+    }
+
+    @if not $border-color {
+        $border-color: $bg-color;
+    }
+
+    .#{$name} {
+        background-color: $bg-color !important;
+        color: $color !important;
+        border-color: $border-color !important;
+        border-width: 1px;
+        @content;
+
+        &:hover, .ant-btn-default:not(:disabled):hover {
+            background-color: $swap-color;
+            color: $sw-color;
+            border-color: $bg-color;//$swap-color;
+        }
+
+        &:focus {
+            background-color: $swap-color;
+            color: $sw-color;
+            border-color: $bg-color;
+        }
+
+        @if $disabled-color{
+            &[disabled],
+            &[disabled]:hover {
+                background-color: $disabled-color;
+                color: text-clear($disabled-color);
+                border-color: $disabled-color;
+            }
+        }
+    }
+}
+
+@mixin make-input($font-size: $input-font-size, $color: $input-color, $padding: $input-padding, $line-height: $input-line-height, $border-color: $input-border-color){
+    $input-made: true !global;
+    .ant-input-affix-wrapper, input, textarea, .ant-input, .ant-select:not(.ant-select-customize-input) .ant-select-selector{
+        border-color: $border-color !important;
+        border-radius: $border-radius-sm !important;
+        border-width: $border-width;
+        background-color: $input-bg-color;
+        color: $color;
+        padding: $padding;
+        line-height: $line-height;
+        font-size: $font-size;
+        @content;
+    }
+    .ant-select:not(.ant-select-customize-input) .ant-select-selector{
+        height: 38px;
+        padding: calc($input-padding-y - 4px) $input-padding-x;
+    }
+}
+
+@mixin make-form-label($font-size: $label-font-size, $color: $label-color, $font-weight: $font-weight-bolder, $line-height: $input-line-height){
+    $label-made: true !global;
+    .ant-form-item .ant-form-item-label >label { //da sostituire con es-form
+        font-size: 1.25em !important;
+        line-height: 1.25em;
+        font-weight: $font-weight-bolder;
+        background-color: transparent;
+        
+        @if $label-color{
+            color: $label-color;
+        }
+        @content;
+    }
+    .ant-form-item{
+        margin-bottom: 24px;
+    }
+    .ant-form-item-label{
+        padding-bottom: 8px;
+    }
+}
+
+//Prima di chiamare questo definire override di eventuali variabili globali degli elementi. //
+@mixin make-theme(){
+
+    @if $color-swap-map{
+        @each $key, $value in $color-swap-map {
+           $_:  map.set($colors-pair, $key,$value);
+        }
+    }
+
+    @include make-button("pri"); 
+    @include make-button("sec", $secondary-color);
+    @include make-button("lite", $white, null, $btn-lite-swap-color);
+    @include make-button("dark", $black);
+
+    @if not $input-made{
+        @include make-input;
+        $input-made: true !global;
+    }
+
+    @if not $label-made{
+        @include make-form-label;
+        $input-made: true !global;
+    }
+
+}

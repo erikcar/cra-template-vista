@@ -1,0 +1,37 @@
+// scss-docs-start backgound
+@import "mixin";
+@import "variable";
+
+@include make-map("bg", background-color, $bg-colors);
+@include make-map("bg", background-color, $colors);
+
+body{
+    background-color: $bg-main;
+}
+
+.bs {
+    border-style: $border-style; 
+} 
+
+.bc-lite{
+    border-color: $gray-550;
+}
+
+.hover-lite{
+    &:hover {
+        background-color: $lite;
+    }
+}
+// scss-docs-end background
+
+// scss-docs-start border
+@include make-map("bw", border-width, $border-widths){
+    border-style: $border-style; 
+};
+
+//#8B8D8E
+
+@include make-map("radius", border-radius, $radius);
+@include make-map-double("radius-top", border-top-left-radius, border-top-right-radius,$radius);
+@include make-map("shadow", box-shadow, $shadows);
+// scss-docs-end border

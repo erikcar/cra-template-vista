@@ -1,7 +1,8 @@
 //import { Context } from "./system";
-
-import { Apix } from "@webground/core";
+import { DataGraph} from "../data/DataGraph";
+import { Apix } from "@essenza/webground";
 import {Context, Controller, EntityModel} from "./system";
+
 /*export const Vista = {
     InitApp: function (INavigate, init) {
         session.init();
@@ -169,26 +170,29 @@ export function Container() {
     }
 }
 
+export const AppConfig = {serviceRoute: "app/"};
+
 export const VistaApp = {
     icontainer: new Container(),
     context: new Context("App"),
-    sessiom: { type: -1 }, //GUEST //new session from webground???
+    session: { type: -1 }, //GUEST //new session from webground???
     logged: false,
     initialized: false,
     current: this,
     model: new EntityModel(),
-
+    breakpoint: new BreakPointer(),
+    settings: {usertype: 0, defaultRole: 0, roles:["admin"], route:[''], defaultRoute: ''},
+    
     setValue: function(name, value){
         VistaApp[name] = value;
         VistaApp.current[name] = value;
     },
 
     init: function(navigator, controller, onlogin, popup) {
-        this.breakpoint = new BreakPointer();
         this.navigate = navigator;
         this.icontainer.service.INavigator = navigator;
         this.icontainer.service.IPopup = popup;
-        this.icontainer.service.IApp = this.current;
+        this.icontainer.service.IApp = VistaApp;
         this.control = this.context.getControl(controller || new Controller());
         this.onlogin = onlogin;
         return this;
@@ -206,8 +210,24 @@ export const VistaApp = {
         channel.addHeader('Authorization','Bearer ' + session.token);
 
         if (this.onlogin)
-            this.onlogin(this);
-
+            this.onlogin(VistaApp);
         this.refresh();
+    },
+
+    setSchema: s => DataGraph.setSchema(s),
+
+    isAdmin: function(){
+        const usertype = VistaApp.settings.usertype;
+        const itype = parseInt(VistaApp.session.itype);
+        console.log("APP-IS-ADMIN", usertype, itype);
+        if(!VistaApp.logged)
+            return false;
+        else if( itype < 0 )
+            return true;
+        else if(Array.isArray(usertype)){
+            return itype === usertype[0];
+        }
+        else
+            return itype === usertype;
     }
 };

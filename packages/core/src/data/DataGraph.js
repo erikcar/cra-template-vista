@@ -1,4 +1,4 @@
-import { Apix, axiosChannel, isString } from "@webground/core";
+import { Apix, axiosChannel, isString } from "@essenza/webground";
 import { SqlGraph } from "./interpreters/ISql";
 import { checkGroup, checkToken, GraphParser, searchData } from "./GraphSupport";
 //import { openPopup } from "../components/Popup";
@@ -138,7 +138,7 @@ function Entity(schema) {
   };
 }
 
-export function Graph(query, params, permanent, context) {
+export function Graph(query, params, permanent, context, deep) {
   /**
    * @type {GraphNode}
    */
@@ -155,7 +155,7 @@ export function Graph(query, params, permanent, context) {
   this.keyp = 0;
   this.nonQuery = false;
   this.isCollection = false;
-
+  this.deep = deep;
   /**
    * @type {number}
    * Cache strategy of Graph Source. Default rule clean data source when no observer are observing graph.
@@ -216,7 +216,7 @@ export function Graph(query, params, permanent, context) {
    * @param {*} schema 
    * @returns {Graph}
    */
-  this.fromSchema = function(etype, name, isCollection, condition, complete, schema ){
+  this.fromSchema = function (etype, name, isCollection, condition, complete, schema) {
     this.isCollection = isCollection;
     this.deep = complete;
     this.condition = condition;
@@ -239,9 +239,9 @@ export function Graph(query, params, permanent, context) {
   
       this.query = this.query.substring(0, this.query.length-1) + '}';
     }*/
-    
+
     this.query = DataGraph.getSchema(new SourcePath(name + ":" + etype), schema);
-    console.log("FROM SCHEMA", this.query); 
+    console.log("FROM SCHEMA", this.query);
     return this;
   }
 
@@ -278,7 +278,7 @@ export function Graph(query, params, permanent, context) {
         //Creare DataSource da risultato e graph
         //Devo assicurarmi di rimuovere i dati quando vista viene smontata
         return result.data;
-      }, er => {console.log("ERROR Graph ExecuteQuery", er); throw er;});
+      }, er => { console.log("ERROR Graph ExecuteQuery", er); throw er; });
     }
   };
 
@@ -291,8 +291,23 @@ export function Graph(query, params, permanent, context) {
     option = DataGraph.formatOption(option, table);
     return Apix.call(option.apiUrl + (option.apiOp || root.name), this.params, option).then((result) => {
       console.log("DATA REQUEST" + root.etype + "." + root.name + " RESULT:", result);
-      //root.source = result.data;
-      root.traverse((node, source) => {
+      const source = result.data;
+      root.source = source;
+      root.notify();
+
+      if (option.many && root.children) {
+        let graph;
+        let node;
+        for (let k = 0; k < root.children.length; k++) {
+          node = root.children[k];
+          graph = new Graph();
+          graph.root = node;
+          DataGraph.registerGraph(graph);
+          node.source = source[node.name];
+          node.notify();
+        }
+      }
+      /*root.traverse((node, source) => {
         if (node.isRoot())
           node.source = source;
         else if (source)
@@ -300,11 +315,11 @@ export function Graph(query, params, permanent, context) {
 
         console.log("EXECUTE API NODE", node, source);
         node.notify();
-      }, true, result.data);
+      }, true, result.data);*/
       //Creare DataSource da risultato e graph
       //Devo assicurarmi di rimuovere i dati quando vista viene smontata
       return result.data;
-    }, er => {console.log("ERROR Graph ExecuteQuery", er); throw er;});
+    }, er => { console.log("ERROR Graph ExecuteQuery", er); throw er; });
   };
 
   this.ShareSource = function (option) {
@@ -412,10 +427,29 @@ export function ExecuteQuery(query, params, relations) {
   return new Graph(query, params, relations).ExecuteQuery();
 }
 
-export function ExecuteApi(query, params, nonQuery) {
-  return nonQuery
+export function ExecuteApi(query, params, many, permanent) {
+  /*return nonQuery
     ? Apix.call(query, params)
-    : new Graph(query, params).ExecuteApi();
+    : new Graph(query, params).ExecuteApi();*/
+  return new Graph(query, params, permanent).ExecuteApi({ many: many });
+}
+
+export const GraphSchema = {
+  Create: function (query, schema) {
+    let path = new SourcePath(query); // gestire anche condition con path?
+    const graph = new Graph(DataGraph.getSchema(path, schema))
+    graph.isCollection = path.isCollection;
+    graph.deep = true;
+    return graph;
+  },
+
+  CreateSource: function (etype, item) {
+    const graph = new Graph().fromSchema(etype, "root", Array.isArray(item), null, true);
+    graph.parse();
+    const node = graph.root;
+    node.addData(item, null, true);
+    return new DataSource(item, node);
+  }
 }
 
 export const Link = { DOWN_WISE: 'd', UP_WISE: 'u', BIDIRECTIONAL: 'b' };
@@ -505,18 +539,31 @@ export function DoubleLink(pk, fk, direction, association) {
   }
 }
 
+DataSource.From = function (etype, item) {
+  const graph = new Graph().fromSchema(etype, "root", Array.isArray(item), null, true);
+  graph.parse();
+  const node = graph.root;
+  node.addData(item, null, true);
+  return new DataSource(item, node);
+}
+
+DataSource.FromNode = function (data, node) {
+  node.formatData(data);
+  return new DataSource(data, node);
+}
+
 export function DataSource(source, node, enode) {
   this.data = source;
   /**
    * @type {GraphNode}
    */
   this.node = node || new GraphNode("temp");
-  
-  if(enode)
+
+  if (enode)
     this.node.etype = enode;
 
   this.get = function (name) {
-    if(!name) {
+    if (!name) {
       /*let d = this.data;
       if (Array.isArray(d))
         d = [...d]; 
@@ -526,48 +573,64 @@ export function DataSource(source, node, enode) {
     return new DataSource(this.data ? this.data[name] : null, this.node?.getChild(name))
   }
 
-  this.getData = function (path,mustarray) {
+  this.getLast = function(name){
+    const ds = this.get(name);
+    if(Array.isArray(ds.data) && ds.data.length>0){
+      ds.data = ds.data[ds.data.length-1];
+    }
+    return ds;
+  }
+
+  this.getData = function (path, mustarray) {
     let d = null;
     if (this.data) {
       d = path ? this.data[path] : this.data;
-      if (Array.isArray(d)) {d = [...d]; 
-        if(!d[0])
-          d= [];
+      if (Array.isArray(d)) {
+        d = [...d];
+        if (!d[0])
+          d = [];
       }
       else d = { ...d };
     }
     console.log("DS GET DATA", d);
-    if(d && mustarray && !Array.isArray(d)){
-      d = []; 
-      if(path)  this.data[path]  = []; else this.data = [];
+    if (d && mustarray && !Array.isArray(d)) {
+      d = [];
+      if (path) this.data[path] = []; else this.data = [];
     }
-      
+
     return d;
   }
 
-  this.getCollection = function(path){
+  this.getCollection = function (path) {
     let d = null;
     if (this.data) {
       d = path ? this.data[path] : this.data;
-      if (Array.isArray(d)) {d = [...d]; 
-        if(!d[0])
-          d= [];
+      if (Array.isArray(d)) {
+        d = [...d];
+        if (!d[0])
+          d = [];
       }
       else {
-        d = []; 
-        if(path)  this.data[path]  = []; else this.data = [];
+        d = [];
+        if (path) this.data[path] = []; else this.data = [];
       }
     }
-    else{
-      d = []; 
-      if(path)  this.data[path]  = []; else this.data = [];
+    else {
+      d = [];
+      if (path) this.data[path] = []; else this.data = [];
     }
-      
+
     return d;
   }
 
   this.discendant = function (path) {
-    return this.node ? this.node.discendant(path)?.datasource : null;
+    return this.node ? this.node.discendant(path): null; //?.datasource 
+  }
+
+  this.CloneWith = function (data, path) {
+    const n = path ? this.node.discendant(path) : this.node;
+    n.formatData(data);
+    return new DataSource(data, n);
   }
 
   this.clear = function () {
@@ -584,6 +647,16 @@ export function DataSource(source, node, enode) {
       }, true, this.data)
     }
   }
+
+  this.set = function (path, item, parent) {
+    parent = parent || this.data;
+    const n = this.node?.discendant(path);
+    if (n && parent) {
+      n.addItem(item, parent);
+    }
+  }
+
+  this.add = function (path, item, parent) { this.set(path, item, parent); }
 }
 
 export function DataSourceGroup(source) {
@@ -691,8 +764,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
    * @returns void
    */
   this.traverse = function (callback, deep, source, ancestor, generate) {
-    callback(this, source, ancestor);
-    if (!this.children) return;
+    const stop = callback(this, source, ancestor);
+    if (!this.children || stop) return;
     for (let k = 0; k < this.children.length; k++) {
       if (generate)
         source[this.children[k].name] = {};
@@ -772,12 +845,28 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return true;
   }
 
- /**
-  * 
-  * @param {*} data 
-  * @param {*} parent 
-  * @returns 
-  */
+  this.bind = function(obj){
+    if(!obj)
+      return obj; // Oppure obj = {} ???
+
+    if(Array.isArray(obj)){
+      for (let k = 0; k < obj.length; k++) {
+        obj[k].__tolink__ = true;
+      }
+    }
+    else{
+      obj.__tolink__ = true;
+    }
+    
+    return obj;
+  }
+
+  /**
+   * 
+   * @param {*} data 
+   * @param {*} parent 
+   * @returns 
+   */
   this.formatData = function (data, parent) {
     console.log("DEBUG-NODE", data);
     if (!data) return;
@@ -785,13 +874,19 @@ export function GraphNode(name, uid, parent, graph, etype) {
     if (!Array.isArray(data))
       data = [data];
 
-    const nolink = data.hasOwnProperty("__nolink__");
+    //const nolink = data.hasOwnProperty("__nolink__");
+    let tolink;
 
     for (let k = 0; k < data.length; k++) {
       const source = data[k];
       let mutated = source.hasOwnProperty("__mutation");
 
-      if (!source.hasOwnProperty("id")) {
+      tolink = source.hasOwnProperty("__tolink__");
+
+      if (!source.hasOwnProperty("id") && Object.isExtensible(source)) {
+
+        tolink = true;
+
         source.id = DataGraph.getEntity(this.etype).nextIndex();
 
         if (!mutated) {
@@ -819,12 +914,17 @@ export function GraphNode(name, uid, parent, graph, etype) {
       if (mutated)
         this.Mutation.set(source.id, source); // Sempre vero che va aggiunto o solo se mutated?
 
-      if (parent && !nolink) //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
-        this.link.apply(parent, source, this);
-
+      if (parent && tolink){ //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
+        this.link.apply(parent, source, this); //Dovrei fare un reset delle rule già impostate se esitono
+        
+        if(source.hasOwnProperty("__tolink__"))
+          delete source.__tolink__;
+      } 
+        
       console.log("DEBUG-NODE", parent, source, this.link, this);
     }
   }
+
 
   /**
    * Solo per settare root source
@@ -868,7 +968,109 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return null; //Oppure root, oppure provo se esiste path senza collection e ricavo?
   }
 
+  this.addSource = function (data) {
+    DataGraph.setItem(data, this);
+  }
+
+  this._setData = function (value, parent, format, override, notNotify) {
+    if (!this.isRoot() && !parent)
+      throw new Error("SET/ADD Data for Discendant Node must have PARENT reference.");
+
+    if(parent)
+      this.bind(value);
+
+    this.clearMutation();
+
+    if (format) {
+      this.traverse((node, data, parent) => {
+        node.formatData(data, parent);
+      }, true, value, parent);
+    }
+    else
+      this.formatData(value, parent);
+
+    DataGraph.setItem(value, this, parent, override);
+
+    if (!notNotify) this.notify();
+  }
+
+  this.formatAndSetData = function (value, parent, path, notNotify) {
+    if (path) {
+      return this.discendant(path).formatAndSetData(value, parent, null, notNotify);
+    }
+
+    this._setData(value, parent, true, true, notNotify);
+
+    return this;
+  }
+
+  this.setData = function (value, parent, path, notNotify) {
+    if (path) {
+      return this.discendant(path).setData(value, parent, null, notNotify);
+    }
+
+    this._setData(value, parent, false, true, notNotify);
+
+    return this;
+  }
+
+  this.addData = function (value, parent, path, notNotify) {
+    if (path) {
+      return this.discendant(path).setData(value, parent, null, notNotify);
+    }
+
+    this._setData(value, parent, false, false, notNotify);
+
+    return this;
+  }
+
+  this.formatAndAddData = function (value, parent, path, notNotify) {
+    if (path) {
+      return this.discendant(path).formatAndSetData(value, parent, null, notNotify);
+    }
+
+    this._setData(value, parent, true, false, notNotify);
+
+    return this;
+  }
+
+  /*this.setDataAt = function (path, value, parent, format, notNotify) {
+    const n = this.discendant(path);
+    if (n) n.setData(value, parent, format, notNotify);
+    return this;
+  }
+
+  this.addDataAt = function (path, value, parent, format, notNotify) {
+    const n = this.discendant(path);
+    if (n) n.addData(value, parent, format, notNotify);
+    return this;
+  }
+
   this.addData = function (item, ancestor, format, notnotify) { //Root o direttamente parent?? supportare entrambi??
+    if (!this.isRoot() && !parent)
+      throw new Error("SET/ADD Data for Discendant Node must have PARENT reference.");
+
+    if (!this.isCollection)
+      this.clearMutation();
+
+    this.traverse((node, data, parent) => {
+      const formatted = format || Array.isArray(data) ? data[0].hasOwnProperty("id") : data.hasOwnProperty("id");
+      node.formatData(data, parent);
+      return formatted;
+    }, true, item, parent);
+
+    DataGraph.setItem(item, this, ancestor);
+
+    if (!notnotify)
+      this.notify(); //Optional??? Come cambia source nel caso collection affichè ci sia update in useState...
+
+    console.log("DEBUG-NODE ADD SOURCE", item);
+
+    return this;
+  }*/
+
+
+  this.addItem = function (item, ancestor, format, notnotify) { //Root o direttamente parent?? supportare entrambi??
 
     if (!this.isCollection)
       this.clearMutation();
@@ -880,8 +1082,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
     }
     else
       this.formatData(item, ancestor);
- 
-    DataGraph.setItem(item, this);//, ancestor);
+
+    DataGraph.setItem(item, this, ancestor);
 
     if (!notnotify)
       this.notify(); //Optional??? Come cambia source nel caso collection affichè ci sia update in useState...
@@ -1000,9 +1202,9 @@ export function GraphNode(name, uid, parent, graph, etype) {
    * @param {bool} root se si desidera salvare solo mutation del node e non le mutation dei nodi discendenti
    * @returns 
    */
-  this.save = function (option, root) {
+  this.save = function (option, parameters) {
     option = DataGraph.formatOption(option, this.etype);
-    const data = {};/*JSON.stringify(this, (name, val) => {
+    let data = {};/*JSON.stringify(this, (name, val) => {
       // convert RegExp to string
       if (name === "root" || name === "parent" || name === "graph" || name === "source" || name === "condition" || name === "source")
         return undefined;
@@ -1031,7 +1233,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
         delete parent[node.name];
       }
       source.name = node.name;
-      source.etype = (DataGraph.config.prefix? DataGraph.config.prefix + '.' : '' ) + node.etype;
+      source.etype = (DataGraph.config.prefix ? DataGraph.config.prefix + '.' : '') + node.etype;
       source.identity = node.identity;
       source.isCollection = node.isCollection;
       source.primarykey = node.primarykey;
@@ -1057,11 +1259,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
 
       if (node.Mutation.size > 0) {
         source.Mutation = [];
-        /*node.Mutation.forEach(function (value, key) {
-          if (value.hasOwnProperty("__mutation"))
-            source.Mutation.push(value.__mutation);
-        });*/
-
+  
         let mutated;
         let data;
         node.Mutation.forEach(function (value, key) {
@@ -1081,23 +1279,29 @@ export function GraphNode(name, uid, parent, graph, etype) {
       //source.typeSChema = node.typeSChema;
     }, true, data, null, true);
 
-    //const d = JSON.stringify(data);
-    //this.graph = null;
-    //this.children = null;
     console.log("SAVE Node JSON: ", data);
     option.excludeParams = true;
+
+    if(parameters){
+      data = {Root: data, Value: parameters}
+    }
+
     return Apix.call(option.queryOp, data, option).then((result) => {
       console.log("Node Save RESULT:", result);
       this.traverse((node) => {
+        node.Mutation.forEach(function (value, key) {
+          delete value.__mutation;
+        });
         node.Mutation.clear();
       }, true);
       this.refresh();
       return result;
     }, er => {
       console.log("ERROR GraphNode Save", er);
-      this.traverse((node) => {
+      throw er;
+      /*this.traverse((node) => {
         node.Mutation.clear();
-      }, true);
+      }, true);*/
       //openPopup(<div >Si è verificato un errore si prega di riprovare.</div>, "Errore", "OK");
     });
   }
@@ -1107,7 +1311,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
       if (!Array.isArray(items))
         items = [items];
 
-      const node = { etype: (DataGraph.config.prefix? DataGraph.config.prefix + '.' : '' ) + this.etype, Mutation: [] };
+      const node = { etype: (DataGraph.config.prefix ? DataGraph.config.prefix + '.' : '') + this.etype, Mutation: [] };
       let item;
       for (let k = 0; k < items.length; k++) {
         item = items[k];
@@ -1115,7 +1319,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
           ? { id: item }
           : { id: item.id });
       }
-      return Apix.call("api/jdelete", node, { excludeParams: true }).then(()=>{
+      return Apix.call("api/jdelete", node, { excludeParams: true }).then(() => {
         this.remove(items[0]);
         /*const source = this.isRoot()?this.source : searchData(this.graph.root.source, items[0], this.path)?.parent[this.name];
         if(Array.isArray(source)){
@@ -1131,21 +1335,21 @@ export function GraphNode(name, uid, parent, graph, etype) {
         console.log(er);
         //openPopup(<div>Si è verificato un errore si prega di riprovare.</div>, "Errore", "OK");
       }
-      
+
       );
     }
   }
 
-  this.remove = function(index){
-    if(isNaN(index))
+  this.remove = function (index) {
+    if (isNaN(index))
       index = index.id;
 
-    const source = this.isRoot()?this.source : searchData(this.graph.root.source, index, this.path)?.parent[this.name];
-    if(Array.isArray(source)){
-      for( var i = 0; i < source.length; i++){ 
-        if ( source[i].id === index) { 
-            source.splice(i, 1);
-            break;
+    const source = this.isRoot() ? this.source : searchData(this.graph.root.source, index, this.path)?.parent[this.name];
+    if (Array.isArray(source)) {
+      for (var i = 0; i < source.length; i++) {
+        if (source[i].id === index) {
+          source.splice(i, 1);
+          break;
         }
       }
     }
@@ -1190,29 +1394,29 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return this.observers.length === 0;
   }
 
-  this.sync = function(item){
+  this.sync = function (item) {
     //debugger;
-    if(!this.source) return;
-    if(this.isRoot()){
+    if (!this.source) return;
+    if (this.isRoot()) {
       const d = this.source;
-      if(Array.isArray(d)){
+      if (Array.isArray(d)) {
         for (let k = 0; k < d.length; k++) {
-          if(d[k].id === item.id){
-            this.source[k] = {...item};
+          if (d[k].id === item.id) {
+            this.source[k] = { ...item };
             this.notify();
             break;
           }
         }
       }
-      else if(d.id === item.id){
-        this.source = {...item};
+      else if (d.id === item.id) {
+        this.source = { ...item };
         this.notify();
       }
     }
   }
 
-  this.refresh = function(){
-    if(this.isRoot()){
+  this.refresh = function () {
+    if (this.isRoot()) {
       const temp = this.source;
       this.source = null;
       this.notify();
@@ -1300,9 +1504,9 @@ export function DataContext(name) {
    * @param {Graph} graph 
    */
   this.registerGraph = function (graph) {
-  
+
     const key = graph.getKey();
-    
+
     if (!key) return; // Worning for develop state?
     const g = this.graphs[key];
     console.log("REGISTER GRAPH", key, graph, g);
@@ -1315,6 +1519,10 @@ export function DataContext(name) {
   }
 
   this.unregisterGraph = function (key) {
+    console.log("UNREGISTER-GRAPH");
+    // Non devo fare unshare?
+    /*const g = this.graphs[key];
+    g.unshare();*/
     delete this.graphs[key];
   }
 
@@ -1373,11 +1581,11 @@ const DataGraph = {
     console.log("DG SCHEMA", path, etype, name, this.schema, s);
     //debugger;
     if (s && s.hasOwnProperty(etype))
-      return {...s[etype], __name: path.name};
+      return { ...s[etype], __name: path.name };
     else {
       for (const key in this.schema) {
         if (Object.hasOwnProperty.call(this.schema[key], etype)) {
-          return {...this.schema[key][etype], __name: path.name}; //Il primo che trova se non specifico name of schema
+          return { ...this.schema[key][etype], __name: path.name }; //Il primo che trova se non specifico name of schema
         }
       }
     }
@@ -1440,15 +1648,35 @@ const DataGraph = {
     this.context.unregisterGraph(key);
   },
 
-  setGlobalState: function (key, data, setter, context) {
+  registerGlobalState: function (key, data, setter, context) {
+    console.log("REG D-GLOBAL", key, data, setter);
     this.state.set(key, { value: data, setter: setter, context: context });
   },
 
+  unregisterGlobalState: function (key) {
+    console.log("UNREG D-GLOBAL", key);
+    this.state.delete(key);
+  },
+
+  setGlobalState: function (key, data, context) {
+    const state = this.state.get(key);
+    console.log("SET D-GLOBAL", key, data, state);
+    if (state) {
+      state.value = data;
+      if (state.setter)
+        state.setter(data);
+    } else {
+      this.state.set(key, { value: data, context: context });
+    }
+  },
+
   getGlobalState: function (key) {
+    console.log("GET D-GLOBAL", key, this.state);
     return this.state.get(key)?.value;
   },
 
   clearGlobalState: function (context) {
+    console.log("CLEAR D-GLOBAL");
     this.state.forEach((v, k) => { if (v && v.context === context) this.state.delete(k); })
   },
 
@@ -1493,11 +1721,11 @@ const DataGraph = {
     let root = this.findGraph(path, context);
     if (!root) {
       console.log("FIND GET SCHEMA ", path.schema, path, path.isSchema);
-      
+
       if (path.isSchema)
-        root = new Graph(path.schema, null, context).root;
+        root = new Graph(path.schema, null, true, context, true).root;
       else
-        root = new Graph(this.getSchema(path), null, context).root;
+        root = new Graph(this.getSchema(path), null, true, context, true).root;
     }
     if (!root) {
       console.warn("findOrCreateGraph wrong path format.");
@@ -1616,6 +1844,7 @@ const DataGraph = {
 
   setItem: function (item, node, parent, override) {
     let name;
+    const isCollection = node.isCollection;
     if (parent) {
       name = node.name;
       node = node.parent;
@@ -1624,8 +1853,8 @@ const DataGraph = {
       parent = node;
       name = "source";
     }
-    
-    if (node.isCollection && !override) {//in teoria non dovrebbe esistere questa ipotesi
+
+    if (isCollection && !override) {//in teoria non dovrebbe esistere questa ipotesi
       if (!parent[name]) parent[name] = [];
       parent[name].push(item);
     }
@@ -1692,10 +1921,10 @@ const DataGraph = {
     return result;
   },
 
-  getMutation: el =>{
-    if (el.hasOwnProperty("__mutation")){
+  getMutation: el => {
+    if (el.hasOwnProperty("__mutation")) {
       const mutated = el.__mutation.mutated;
-      const data = {id: el.id};
+      const data = { id: el.id };
       for (const key in mutated) {
         if (Object.hasOwnProperty.call(mutated, key)) {
           data[key] = el[key];
@@ -1937,7 +2166,7 @@ export function DataProxy(node, target, formatter) {
 
 export function EntityProxy(etype, target, node) {
   this._etype = etype;
-  this.target = target || {};
+  this.target = target || {}; //Traget deve essere settato o nel costruttore oppure tramite setData, no direttamente
   this.node = node;
 
   Object.defineProperty(this, "etype", {
@@ -1960,13 +2189,15 @@ export function EntityProxy(etype, target, node) {
     }
   }
 
-  this.toNode = function () {
-    if(this.node)
+  this.toNode = function (name) {
+    if (this.node)
       return this.node;
 
-    const node = new GraphNode("proxy", 0, null, null, etype);
-    node.setSource(this.target);
-    return node;
+    const path = this._etype + "." + (name || "item");
+    this.node = DataGraph.findOrCreateGraph(path);
+    //new GraphNode("proxy", 0, null, null, etype);
+    this.node.setSource(this.target, null, true);
+    return this.node;
   }
 
   this.procedure = function (field, script) {
@@ -1991,13 +2222,19 @@ export function EntityProxy(etype, target, node) {
             return undefined;
         },
         set: function (value) {
-            if (this.node)
-              node.mutate(key, value, this.target);
-            else
-              DataGraph.mutate(key, value, this.target);
+          if (this.node)
+            node.mutate(key, value, this.target);
+          else
+            DataGraph.mutate(key, value, this.target);
         }
       });
     }
+  }
+
+  this.setData = function(data){
+    this.target = data || {};
+    if(this.onTargetChanged)
+      this.onTargetChanged(this.target);
   }
 
   this.wrap();

@@ -1,0 +1,102 @@
+@import 'variable';
+@import "mixin";
+
+.h100 {
+    height: 100%;
+}
+
+.h50 {
+    height: 50%;
+}
+
+.w100 {
+    width: 100%;
+}
+
+.img-resize {
+    max-width: 100%;
+    height: auto;
+
+    @media (max-width: $max-width-mobile) {
+        margin: auto;
+        display: block;
+    }
+}
+
+.img-scale {
+    width: 100%;
+    max-width: 480px;
+    height: auto;
+
+    @media (max-width: $max-width-mobile) {
+        margin: auto;
+        display: block;
+    }
+}
+
+/* HEADER */
+.h-main {
+    height: calc(100vh - $header-height);
+}
+
+.h-main-sm {
+    height: calc(100vh - $header-height-sm);
+}
+
+.h-main-lg {
+    height: calc(100vh - $header-height-lg);
+}
+
+/* HEDER  AND SUBMENU*/
+.h-sub {
+    height: calc(100vh - $header-height - $sub-height);
+}
+
+.h-sub-plus {
+    height: calc(100vh - $header-height - $sub-height-lg);
+}
+
+.h-sub-sm {
+    height: calc(100vh - $header-height-sm - $sub-height);
+}
+
+.h-sub-md {
+    height: calc(100vh - $header-height-sm - $sub-height-lg);
+}
+
+.h-sub-lg {
+    height: calc(100vh - $header-height-lg - $sub-height);
+}
+
+.h-sub-xl {
+    height: calc(100vh - $header-height-lg - $sub-height-lg);
+}
+
+/* MOBILE (HEADER AND FOOTER) */
+.h-mob {
+    height: calc(100vh - $header-height - $footer-height);
+}
+
+.h-mob-xs {
+    height: calc(100vh - $header-height-sm - $footer-height-sm);
+}
+
+.h-mob-sm-bottom {
+    height: calc(100vh - $header-height - $footer-height-sm);
+}
+
+.h-mob-sm-top {
+    height: calc(100vh - $header-height-sm - $footer-height);
+}
+
+/* MAX-WIDTH */
+@include make-map("max-width", max-width, $max-width-map);
+
+.max-width-ive{
+    max-width: $max-width-desktop;
+}
+
+/* MAX-HEIGTH */
+@include make-map("h", height, $max-height-map);
+
+

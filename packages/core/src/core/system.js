@@ -1,4 +1,5 @@
-import { DataGraph, DataSource, Graph } from "../data/DataGraph";
+import { DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
+import { FileService } from "./Service";
 import { VistaApp } from "./Vista";
 
 function breakFlow() { }
@@ -90,12 +91,18 @@ export function Flow() {
       if (!result) continue;
       else if (result instanceof Promise) {
         result = await result;
+        if (!result) continue;
         //result.then((r)=> { if(r instanceof breakFlow)  bf = true;  debugger;} )
       }
-      if (bf || result instanceof breakFlow || result instanceof Error) {
+      if (bf || result instanceof breakFlow) {
+        reject(false);
+        break;
+      }
+      else if (result instanceof Error) {
         reject(result);
         break;
       }
+      value = result;
     }
     resolve(result);
   }
@@ -181,12 +188,13 @@ export function Controller() {
   this.contextid = null;
   this.app = null;
   this.popup = null;
-
-  this.inject = function (IApi, INavigator, IPopup) {
+  this.model = new EntityModel();
+  this.inject = true;
+  /*function (IApi, INavigator, IPopup) {
     this.api = IApi;
     this.navigator = INavigator;
     this.popup = IPopup;
-  }
+  }*/
 
   //quando setto command guardo se per component ( o view ) associata al controller esiste override e apllico eventualmente
   this.command = { NAVIGATE: (url, state) => { this.navigator(url, state) }, };
@@ -206,6 +214,13 @@ export function Controller() {
     return this.context.getElement(name);
   };
 
+  this.validate = async function (key) {
+    const form = this.form(key);
+    if (form)
+      return await form.validate();
+    else return { isValid: false, reason: "No Form to validate for key: " + key }; //Promise.reject("No Form to validate for key: " + key);
+  }
+
   this.Subscribe = function (intent, action, emitter, context, condition) {
     messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.contextid);
   };
@@ -215,22 +230,40 @@ export function Controller() {
   }
 
   this.execute = function (intent, value, data, model, parameters) {
-    messenger.Publish(intent, this.command[intent], value, data, model, parameters, this.contextid, this.skin, this);
+    messenger.Publish(intent, this.command[intent], value, data, model, parameters, this.contextid, this.skin, this).catch((r) => console.log(r));
+  }
+
+  this.observe = function (emitter, actions) {
+    if (!actions) return;
+    for (const key in actions) {
+      if (Object.hasOwnProperty.call(actions, key)) {
+        this.Subscribe(key, actions[key], emitter, this.contextid)
+      }
+    }
+  }
+
+  this.ResolveClass = function (classType) {
+    return VistaApp.icontainer.ResolveClass(classType);
+  }
+
+  this.upload = function (option) {
+    const file = VistaApp.icontainer.ResolveClass(FileService);
+    return file.Upload(option);
   }
 
   this.request = function (s, f) {
     let service = VistaApp.icontainer.ResolveClass(s);
     return f(service);
   }
-  
+
   this.openPopup = function (component, title, width, info) {
     /*if(typeof component === "string")
       component = <div>{component}</div>;*/
-    if(this.popup)
+    if (this.popup)
       this.popup.open(component, title, width, info); //Deve diventare popup inject o iservice in generale dove c'è navigator, popup ecc.
   }
 
-  this.closePopup = ()=>{if(this.popup) this.popup.close();}
+  this.closePopup = () => { if (this.popup) this.popup.close(); }
 
   this.show = function (view, info, state, path) {
     path = path || 'formvista';
@@ -240,8 +273,51 @@ export function Controller() {
     this.navigator(path, state);
   }
 
-  this.setSource = function (path, source) { return DataGraph.setSource(path, source); }
+  this.setSource = function (path, source, name) { 
+    return this.source(path, name).setData(source);
+    DataGraph.setSource(path, source).datasource; 
+  }
+
   this.getSource = function (path) { return DataGraph.getSource(path); }
+
+  this.source = function(etype, name, data){
+    let path = etype + "." + (name || "temp");
+    let root;
+    if(Object.prototype.toString.call(etype) !== "[object String]"){
+      const m = VistaApp.icontainer.ResolveClass(etype);
+      path = m.etype + "." + name;
+    }
+    else if(etype.indexOf(':')>-1)
+      root = new Graph(etype).root;
+
+    root = DataGraph.findOrCreateGraph(path);
+
+    if(data)
+      root.setData(data)
+
+    return root;
+  }
+
+  this.graph = function(etype){
+    const path = etype.indexOf(":")>-1? etype : DataGraph.getSchema(etype);
+    return new Graph(path, null, false, null, true).root;
+  }
+
+  this.bind = function(obj){
+    if(!obj)
+      return obj; // Oppure obj = {} ???
+
+    if(Array.isArray(obj)){
+      for (let k = 0; k < obj.length; k++) {
+        obj[k].__tolink__ = true;
+      }
+    }
+    else{
+      obj.__tolink__ = true;
+    }
+    
+    return obj;
+  }
 }
 
 export function EntityModel(vid) {
@@ -262,7 +338,44 @@ export function EntityModel(vid) {
     return this.read(m, f);
   }
 
-  this.setSource = function (path, source) { DataGraph.setSource(path, source); }
+  this.getGlobal = function (key) {
+    return DataGraph.getGlobalState(key);
+  }
+
+  this.setGlobal = function (key, value) {
+    DataGraph.setGlobalState(key, value);
+  }
+
+  //this.setSource = function (path, source) { DataGraph.setSource(path, source); }
+
+  this.setSource = function (path, source, name) { 
+    return this.source(path, name).setData(source);
+  }
+
+  this.getSource = function (path) { return DataGraph.getSource(path); }
+
+  this.source = function(etype, name, data){
+    let path = etype + "." + (name || "temp");
+    let root;
+    if(Object.prototype.toString.call(etype) !== "[object String]"){
+      const m = VistaApp.icontainer.ResolveClass(etype);
+      path = m.etype + "." + name;
+    }
+    else if(etype.indexOf(':')>-1)
+      root = new Graph(etype).root;
+
+    root = DataGraph.findOrCreateGraph(path);
+
+    if(data)
+      root.setData(data)
+
+    return root;
+  }
+
+  this.setItem = function (model, item) {
+    const m = VistaApp.icontainer.ResolveClass(model);
+    DataGraph.setSource(m.etype + '.' + m.itemName(), item);
+  }
 
   this.addData = function (source, data, parent, format) {
     data = data || {};
@@ -281,6 +394,8 @@ export function DataModel(etype, op) {
   this.etype = etype;
   this.op = op;
 
+  this.itemName = () => "item";
+
   this.ExecuteQuery = (query, params, permanent) => {
     return new Graph(query, params, permanent).ExecuteQuery();
   };
@@ -290,7 +405,7 @@ export function DataModel(etype, op) {
   };
 
   this.item = function (pk) { //Completo da schema
-    return new Graph(null, { id: pk }).fromSchema(this.etype, "item", false, "id=@id",true).ExecuteQuery();
+    return new Graph(null, { id: pk }).fromSchema(this.etype, "item", false, "id=@id", true).ExecuteQuery();
   };
 
   this.Where = (condition, params, complete, schema) => {
@@ -305,6 +420,27 @@ export function DataModel(etype, op) {
       opt = op;
 
     return new Graph(query, params, permanent).ExecuteApi(opt);
+  };
+
+  this.ExecuteApiWithSchema = function (query, params, op, permanent) {
+    let opt;
+    if (typeof op === 'string')
+      opt = { apiOp: op };
+    else if (op)
+      opt = op;
+
+    const values = query.split(':');
+//new Graph(DataGraph.getSchema(p), params, permanent)
+    /*let p = new SourcePath(values[1].trim() + '.' + values[0].trim()); // gestire anche condition con path?
+    
+    const graph = 
+    graph.isCollection = p.isCollection;
+    graph.deep = true;*/
+    const root = DataGraph.findOrCreateGraph(values[1].trim() + '.' + values[0].trim());
+    root.graph.params = params;
+    root.graph.permanent = permanent;
+    console.log("GRAPH-PARSE-WITH-SCHEMA", root.graph);
+    return root.graph.ExecuteApi(opt);
   };
 
   this.CallApi = function (name, params) {
@@ -393,8 +529,11 @@ export function Observer(fields, emitter) {
     this.actions.push((info) => {
       const fields = info.fields.split(',');
       console.log("HAS VALUE", fields);
+      let v;
       for (let k = 0; k < fields.length; k++) {
-        if (!info.values[fields[k]]) return false;
+        v = info.values[fields[k]];
+        if (v && v.hasOwnProperty("value")) v = v.value;
+        if (!v) return false;
       }
       return true;
     });
@@ -465,14 +604,20 @@ export function Observable(target, source, emitters, schema, oclass) {
     }
   };
 
-  this.onPublish = function (value, info) {
-    const data = info.data;
+  this.onPublish = function (value, data) {
+    //const data = info.data;
     const field = data.field;
-    console.log("OBS ON PUBLISH BEFORE", value, info, this.mutation);
-    if (this.mutation[field] === data.value)
-      return;
-    this.mutation[field] = value;
-    console.log("OBS ON PUBLISH", value, info, data);
+    if (data.value && data.value.hasOwnProperty('label')) {
+      data.value = data.value.value;
+      data.values = { ...data.values };
+      data.values[field] = data.value;
+      data.values[field + "_label"] = data.value.label;
+    }
+    console.log("OBS ON PUBLISH BEFORE", value, data, this.mutation);
+    /*if (this.mutation[field] === data.value)
+      return;*/
+    this.mutation[field] = data.value;
+    console.log("OBS ON PUBLISH", value, data);
     data.emitter = value;
     this.notify(data);
   }

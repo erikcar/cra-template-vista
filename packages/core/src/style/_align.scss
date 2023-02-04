@@ -1,0 +1,38 @@
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.centered {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+//Flex Align
+
+.flex-center {
+    display: flex;
+    justify-content: center;
+}
+
+.flex-right {
+    display: flex;
+    justify-content: flex-end; 
+}
+
+.flex-middle{
+    display: flex;
+    align-items: center; 
+}
+
+.v-middle{
+    vertical-align: middle;
+}

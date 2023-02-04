@@ -1,0 +1,10 @@
+
+@import 'mixin';
+
+@include make-directional-prop(margin, m);
+@include make-directional-prop(padding, p);
+
+.mx-0{
+    margin-left:    0 !important;
+    margin-right:   0 !important;
+}

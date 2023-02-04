@@ -1,0 +1,395 @@
+$prefix: 'es' !default;
+
+// Color system
+
+// scss-docs-start gray-color-variables
+$white:    #fff !default;
+$gray-100: #f8f9fa !default;
+$gray-200: #e9ecef !default;
+$gray-300: #dee2e6 !default;
+$gray-400: #ced4da !default;
+$gray-500: #adb5bd !default;
+$gray-550: #8B8D8E !default;
+$gray-600: #6c757d !default;
+$gray-700: #495057 !default;
+$gray-800: #343a40 !default;
+$gray-900: #212529 !default;
+$black:    #000 !default;
+$lite: rgba(0, 0, 0, 0.06) !default;
+// scss-docs-end gray-color-variables
+
+// fusv-disable
+// scss-docs-start gray-colors-map
+$grays: (
+  "100": $gray-100,
+  "200": $gray-200,
+  "300": $gray-300,
+  "400": $gray-400,
+  "500": $gray-500,
+  "600": $gray-600,
+  "700": $gray-700,
+  "800": $gray-800,
+  "900": $gray-900
+) !default;
+// scss-docs-end gray-colors-map
+// fusv-enable
+
+// scss-docs-start color-variables
+$blue:    #0d6efd !default;
+$indigo:  #6610f2 !default;
+$purple:  #6f42c1 !default;
+$pink:    #d63384 !default;
+$red:     #dc3545 !default;
+$orange:  #fd7e14 !default;
+$yellow:  #ffc107 !default;
+$green:   #198754 !default;
+$teal:    #20c997 !default;
+$cyan:    #0dcaf0 !default;
+// scss-docs-end color-variables
+
+// scss-docs-start colors-map
+$colors: (
+  "blue":       $blue,
+  "indigo":     $indigo,
+  "purple":     $purple,
+  "pink":       $pink,
+  "red":        $red,
+  "orange":     $orange,
+  "yellow":     $yellow,
+  "green":      $green,
+  "teal":       $teal,
+  "cyan":       $cyan,
+  "black":      $black,
+  "white":      $white,
+  "gray-lite":  $gray-400,
+  "gray":       $gray-600,
+  "gray-dark":  $gray-800
+) !default;
+// scss-docs-end colors-map
+
+// The contrast ratio to reach against white, to determine if color changes from "light" to "dark". Acceptable values for WCAG 2.0 are 3, 4.5 and 7.
+// See https://www.w3.org/TR/WCAG20/#visual-audio-contrast-contrast
+$min-contrast-ratio:   4.5 !default;
+
+// Customize the light and dark text colors for use in our color contrast function.
+$color-contrast-dark:      $black !default;
+$color-contrast-light:     $white !default;
+
+// scss-docs-start theme-color-variables
+$primary:       $blue !default;
+$secondary:     $gray-600 !default;
+$success:       $green !default;
+$info:          $cyan !default;
+$warning:       $yellow !default;
+$danger:        $red !default;
+$lite:         $gray-100 !default;
+$dark:          $gray-900 !default;
+// scss-docs-end theme-color-variables
+
+// scss-docs-start theme-colors-map
+$theme-colors: (
+  "primary":    $primary,
+  "secondary":  $secondary,
+  "success":    $success,
+  "info":       $info,
+  "warning":    $warning,
+  "danger":     $danger,
+  "light":      $lite,
+  "dark":       $dark
+) !default;
+// scss-docs-end theme-colors-map
+
+$primary-color: #192857 !default;
+$secondary-color: #5a2c31 !default;
+$tertiary-color: #8B8D8E !default;
+
+$auxiliary-color: #8B8D8E !default; //Es unselected, first alternative to bg-block
+$swap-color: #EDEDED !default;//
+
+$colors-pair: ($primary-color: text-clear($primary-color), $secondary-color: text-clear($secondary-color)) !default;
+$colors-swap: ($secondary-color: $swap-color) !default;
+
+$color-swap-map: null !default;
+$color-pair-map: null !default;
+
+$copy-lite: $lite;
+$copy-dark: $dark;
+$copy-primary: #2B2C2E;
+$copy-secondary: #5a2c31;
+$copy-aux: $auxiliary-color;
+
+$bg-header: #FFFFFF !default;
+$bg-footer: $bg-header !default;
+$bg-sub: $auxiliary-color !default;
+
+$bg-main: #E9EDF5 !default;
+
+$bg-block: #FFFFFF !default;
+$bg-block-aux: $gray-300 !default;
+
+$bg-block-primary: $primary-color !default;
+$bg-block-secondary: $secondary-color !default;
+$bg-block-tertiary: $tertiary-color !default;
+
+$bg-block-lite: $lite !default;
+$bg-block-dark: $dark !default;
+
+$bg-colors: (
+  'main': $bg-main, 
+  'block': $bg-block, 
+  'lite': $lite,
+  'aux':  $bg-block-aux, 
+  'pri':  $bg-block-primary,
+  'sec':  $bg-block-secondary,
+  'ter':  $bg-block-tertiary,
+) !default;
+
+$layout: null !default;
+// measure
+$header-height-sm: 48px !default;
+$header-height: 64px !default;
+$header-height-lg: 96px !default;
+
+$sub-height: 36px !default;
+$sub-height-lg: 48px !default;
+
+$footer-height-sm: 48px !default;
+$footer-height: 64px !default;
+$footer-height-lg: 96px !default;
+
+$icon-size-sm: 28px !default;
+$icon-size: 36px !default;
+$icon-size-lg: 48px !default;
+
+$max-width-mobile-xs: 379px !default;
+$max-width-mobile-sm: 576px !default;
+$max-width-mobile: 768px !default;  //768-1024 Tablet
+$max-width-tablet: 1024px !default; //1024 - 1280 Laptop
+$max-width-laptop: 1280px !default;  //>1280 Desktop
+$max-width-desktop: 1600px !default; // XL Desktop
+
+$max-width-map: (
+  xs: $max-width-mobile-xs,
+  sm: $max-width-mobile-sm,
+  md: $max-width-mobile,
+  lg: $max-width-tablet,
+  xl: $max-width-laptop,
+  xxl: $max-width-desktop
+) !default;
+
+
+$max-height-map: (
+  xs: 450px,
+  sm: 540px,
+  md: 600px,
+  lg: 720px,
+  xl: 920px,
+  xxl: 1200px
+) !default;
+/*$size-xxs: 8px !default;
+$size-xs: 12px !default;
+$size-sm: 16px !default;
+$size-md: 24px !default;
+$size-lg: 32px !default;
+$size-xl: 48px !default;
+$size-xxl: 64px !default;*/
+
+// Spacing
+//
+// Control the default styling of most Bootstrap elements by modifying these
+// variables. Mostly focused on spacing.
+// You can add more entries to the $spacers map, should you need more variation.
+
+// scss-docs-start spacer-variables-maps
+$spacer: 1rem !default;
+$spacers: (
+  xs: 0,
+  sm: $spacer * .25,
+  md: $spacer * .5,
+  lg: $spacer,
+  xl: $spacer * 1.5,
+  xxl: $spacer * 3,
+) !default;
+// scss-docs-end spacer-variables-maps
+
+$breakpoints: (
+  xs: 0,
+  sm: 576px,
+  md: 768px,
+  lg: 992px,
+  xl: 1200px,
+  xxl: 1400px
+) !default;
+
+$direction: ( top: t, right: r, bottom: b, left: l, vertical: y, horizontal: x) !default;
+
+$gradient: linear-gradient(180deg, rgba($white, .15), rgba($white, 0)) !default;
+
+// scss-docs-start border-variables
+$border-width:                1px !default;
+$border-widths: (
+  1: 1px,
+  2: 2px,
+  3: 3px,
+  4: 4px,
+  5: 5px
+) !default;
+$border-style:                solid !default;
+$border-color:                $gray-300 !default;
+$border-color-translucent:    rgba($black, .175) !default;
+// scss-docs-end border-variables
+
+// scss-docs-start border-radius-variables
+$border-radius:               .375rem !default;
+$border-radius-xs:            .2rem !default;
+$border-radius-sm:            .25rem !default;
+$border-radius-lg:            .5rem !default;
+$border-radius-xl:            1rem !default;
+$border-radius-2xl:           2rem !default;
+$border-radius-pill:          50rem !default;
+
+$radius: (
+  xs: $border-radius-xs,
+  sm: $border-radius-sm,
+  md: $border-radius,
+  lg: $border-radius-lg,
+  xl: $border-radius-2xl,
+  xxl: $border-radius-pill
+) !default;
+// scss-docs-end border-radius-variables
+
+// scss-docs-start box-shadow-variables
+$box-shadow:                  0 .5rem 1rem rgba(var(--#{$prefix}-body-color-rgb), .15) !default;
+$box-shadow-sm:               0 .125rem .25rem rgba(var(--#{$prefix}-body-color-rgb), .075) !default;
+$box-shadow-lg:               0 1rem 3rem rgba(var(--#{$prefix}-body-color-rgb), .175) !default;
+$box-shadow-inset:            inset 0 1px 2px rgba(var(--#{$prefix}-body-color-rgb), .075) !default;
+
+$shadows: (
+  sm: $box-shadow-sm,
+  md: $box-shadow,
+  lg: $box-shadow-lg,
+  inset: $box-shadow-inset,
+) !default;
+//Typography
+
+$font-root:                   system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !default;
+$font-primary:                $font-root !default;
+$font-secondary:              null !default;
+$font-auxiliary:              null !default;
+
+// $font-size-root affects the value of `rem`, which is used for as well font sizes, paddings, and margins
+// $font-size-base affects the font size of the body text
+$font-size-root:              null !default;
+$font-size-base:              1rem !default; // Assumes the browser default, typically `16px`
+$font-size-sm:                $font-size-base * .875 !default;
+$font-size-lg:                $font-size-base * 1.25 !default;
+
+$font-weight-lighter:         lighter !default;
+$font-weight-light:           300 !default;
+$font-weight-normal:          400 !default;
+$font-weight-medium:          500 !default;
+$font-weight-semibold:        600 !default;
+$font-weight-bold:            700 !default;
+$font-weight-bolder:          bolder !default;
+
+$font-weight-base:            $font-weight-normal !default;
+
+$line-height-base:            1.5 !default;
+$line-height-sm:              1.25 !default;
+$line-height-lg:              2 !default;
+
+// scss-docs-start headings-variables
+$headings-margin-bottom:      0 !default; //$spacer * .5
+$headings-font-family:        null !default;
+$headings-font-style:         null !default;
+$headings-font-weight:        500 !default;
+$headings-line-height:        1 !default;
+$headings-color:              null !default;
+
+$paragraph-margin-bottom:     $spacer * .5 !default;
+// scss-docs-end headings-variables
+
+// scss-docs-start font-variables
+$h1-font-size:                $font-size-base * 2.5 !default;
+$h2-font-size:                $font-size-base * 2 !default;
+$h3-font-size:                $font-size-base * 1.75 !default;
+$h4-font-size:                $font-size-base * 1.5 !default;
+$h5-font-size:                $font-size-base * 1.25 !default;
+$h6-font-size:                $font-size-base !default;
+// scss-docs-end font-variables
+
+// scss-docs-start font-sizes
+$font-sizes: (
+  1: $h1-font-size,
+  2: $h2-font-size,
+  3: $h3-font-size,
+  4: $h4-font-size,
+  5: $h5-font-size,
+  6: $h6-font-size
+) !default;
+// scss-docs-end font-sizes
+
+// scss-docs-start font-weights
+$weights: (
+    2: $font-weight-lighter,
+    3: $font-weight-light,
+    4: $font-weight-normal,
+    5: $font-weight-medium,
+    6: $font-weight-semibold,
+    7: $font-weight-bold,
+    8: $font-weight-bolder,
+) !default;
+// scss-docs-end font-weights
+
+// scss-docs-start zindex-stack
+$zindex-dropdown:                   1000 !default;
+$zindex-sticky:                     1020 !default;
+$zindex-fixed:                      1030 !default;
+$zindex-offcanvas-backdrop:         1040 !default;
+$zindex-offcanvas:                  1045 !default;
+$zindex-modal-backdrop:             1050 !default;
+$zindex-modal:                      1055 !default;
+$zindex-popover:                    1070 !default;
+$zindex-tooltip:                    1080 !default;
+$zindex-toast:                      1090 !default;
+// scss-docs-end zindex-stack
+
+// scss-docs-start zindex-levels-map
+$zindex-levels: (
+  n1: -1,
+  0: 0,
+  1: 1,
+  2: 2,
+  3: 3
+) !default;
+
+$aspect-ratios: (
+  "1x1": 100%,
+  "4x3": calc(3 / 4 * 100%),
+  "16x9": calc(9 / 16 * 100%),
+  "21x9": calc(9 / 21 * 100%)
+) !default;
+
+$btn-bordered:                    false !default;
+$btn-hover-effect-amount:         20% !default;
+$btn-shade-amount:                90% !default;
+$btn-tint-amount:                 20% !default;
+$btn-lite-swap-color:             $dark !default;
+
+$input-made:                      false;
+$input-border-color:              $auxiliary-color !default;
+$input-color:                     #333333 !default;
+$input-padding-y:                 7px !default;
+$input-padding-x:                 11px !default;
+$input-padding:                   $input-padding-y $input-padding-x !default;
+$input-line-height:               1.3em !default;
+$input-font-size:                 1.2em !default;
+$input-bg-color:                  transparent !default;
+
+$label-made:                      false;
+$label-font-size:                 1.25em !default;
+$label-line-height:               1.25em !default;
+$label-font-weight:               $font-weight-bolder !default;
+$label-color:                     null !default;
+
+$ant-table-bg-color:              #e5e9f1 !default;

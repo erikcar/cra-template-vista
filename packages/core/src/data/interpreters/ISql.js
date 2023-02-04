@@ -20,7 +20,7 @@ function joinToSql(n, int){
    
     const c = n.condition.at(k);
     if (typeof c === 'string')
-      sql += (int[c] || c);
+      sql += " " + (int[c] || c) + " ";
     else
       sql += formatName(c.field, n.etype) + c.operator + "p." + c.value; 
   }
@@ -33,10 +33,10 @@ function subqeryToSql(n, int){
   let sql = " (SELECT " + fields[0] + " FROM " + n.etype + " WHERE ";
   let len = n.condition.length();
   for (let k = 0; k < len; k++) {
-   
+    
     const c = n.condition.at(k);
     if (typeof c === 'string')
-      sql += (int[c] || c);
+      sql += " " + (int[c] || c) + " ";
     else
       sql += formatName(c.field, n.etype) + c.operator + "p." + c.value; 
   }
@@ -53,7 +53,7 @@ function graphToSql(node, int, skipJSON) {
   let sql = "SELECT ";
   //const schema = node.schema;
   let columns = formatNames(node.fields, 'p', {}) + ", '" + node.etype + "' as etype ";
-
+  
   let from = " FROM " + (DataGraph.config.prefix? DataGraph.config.prefix + '.' : '' ) + (formatName(node.etype)) + " AS p"; //dql.fromTable || 
   //Gestire Children
   if (node.children) {
@@ -61,6 +61,12 @@ function graphToSql(node, int, skipJSON) {
     let n, col, link; let gbfields='';
     for (let k = 0; k < node.children.length; k++) {
       n = node.children[k];
+
+      if(n.link.direction === Link.BIDIRECTIONAL){
+        //t' +  k + '
+        columns += "," + '(SELECT json_agg(row_to_json(t.*)) FROM (SELECT s.* FROM(SELECT jsonb_array_elements::integer as sid FROM jsonb_array_elements(p.j' + n.name + ')) as u LEFT JOIN ' + n.etype + ' as s ON u.sid=s.id)t) as ' + n.name;
+        continue;
+      }
 
       if(n.name === '#sub')
       {
@@ -132,7 +138,7 @@ function graphToSql(node, int, skipJSON) {
       console.log("CONDTION IN PARSER: ", c);
       //sql += cparser(c, "p", int);
       if (typeof c === 'string')
-        sql += (int[c] || c)
+        sql += ' ' + (int[c] || c) + ' ';
       else {
         sql += c.not ? " NOT " : " ";
         if (c.fieldProcedure)

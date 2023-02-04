@@ -1,0 +1,33 @@
+@import "function";
+@import "variable";
+@import "mixin";
+
+@import "align";
+@import "container";
+@import "element";
+@import "layout";
+@import "measure";
+@import "spacing";
+@import "typography";
+
+@include make-theme();
+
+:root {
+    --#{$prefix}-body-color-rgb: 136,136,136;
+}
+
+@include make-map("c", color, $colors);
+
+.pointer {
+    cursor: pointer;
+}
+
+.ant-col svg,
+.ant-col img {
+    vertical-align: middle;
+}
+
+.ant-table-thead>tr>th {
+    background-color: $ant-table-bg-color !important;
+    color: black;
+}
