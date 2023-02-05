@@ -210,15 +210,37 @@ export function Controller() {
     this.navigator(url, data)
   };
 
+  /** PER COMPATIBILITA => TBD */
   this.form = function (name) {
     return this.context.getElement(name);
+  }
+
+  this.getState = function (skin) {
+    skin = skin || this.skin;
+    const state = this.context.state.get(skin);
+    return state ? [...state] : null;
   };
 
-  this.validate = async function (key) {
-    const form = this.form(key);
-    if (form)
-      return await form.validate();
-    else return { isValid: false, reason: "No Form to validate for key: " + key }; //Promise.reject("No Form to validate for key: " + key);
+  this.validate = async function (skin, key) {
+    let state = this.getState(skin);
+    const result = { isValid: false, model: state };
+    if (state) {
+      if (state[0].form && state[0].form.hasOwnProperty(key)) {
+        result.isValid = true;
+        result.validation = [];
+        const len = state.length;
+        for (const model of state) {
+          const r = await model.form[key].validate();
+          if (len === 1) {
+            r.model = model;
+            return r;
+          }
+          result.isValid &&= r.isValid;
+          result.validation.push(r);
+        }
+      }
+    }
+    return result;
   }
 
   this.Subscribe = function (intent, action, emitter, context, condition) {
@@ -273,55 +295,56 @@ export function Controller() {
     this.navigator(path, state);
   }
 
-  this.setSource = function (path, source, name) { 
+  this.setSource = function (path, source, name) {
     return this.source(path, name).setData(source);
-    DataGraph.setSource(path, source).datasource; 
+    DataGraph.setSource(path, source).datasource;
   }
 
   this.getSource = function (path) { return DataGraph.getSource(path); }
 
-  this.source = function(etype, name, data){
+  this.source = function (etype, name, data) {
     let path = etype + "." + (name || "temp");
     let root;
-    if(Object.prototype.toString.call(etype) !== "[object String]"){
+    if (Object.prototype.toString.call(etype) !== "[object String]") {
       const m = VistaApp.icontainer.ResolveClass(etype);
       path = m.etype + "." + name;
     }
-    else if(etype.indexOf(':')>-1)
+    else if (etype.indexOf(':') > -1)
       root = new Graph(etype).root;
 
     root = DataGraph.findOrCreateGraph(path);
 
-    if(data)
+    if (data)
       root.setData(data)
 
     return root;
   }
 
-  this.graph = function(etype){
-    const path = etype.indexOf(":")>-1? etype : DataGraph.getSchema(etype);
+  this.graph = function (etype) {
+    const path = etype.indexOf(":") > -1 ? etype : DataGraph.getSchema(etype);
     return new Graph(path, null, false, null, true).root;
   }
 
-  this.bind = function(obj){
-    if(!obj)
+  this.bind = function (obj) {
+    if (!obj)
       return obj; // Oppure obj = {} ???
 
-    if(Array.isArray(obj)){
+    if (Array.isArray(obj)) {
       for (let k = 0; k < obj.length; k++) {
         obj[k].__tolink__ = true;
       }
     }
-    else{
+    else {
       obj.__tolink__ = true;
     }
-    
+
     return obj;
   }
 }
 
 export function EntityModel(vid) {
   this.vid = vid;
+  this.control = null;
   this.read = function (m, f) {
     let model;
     if (f) {
@@ -332,6 +355,10 @@ export function EntityModel(vid) {
       model = new DataModel();
       return m(model);
     }
+  }
+
+  this.emit = function (intent, data, param) {
+    this.control.execute(intent, data, this, param);
   }
 
   this.request = function (m, f) {
@@ -348,25 +375,25 @@ export function EntityModel(vid) {
 
   //this.setSource = function (path, source) { DataGraph.setSource(path, source); }
 
-  this.setSource = function (path, source, name) { 
+  this.setSource = function (path, source, name) {
     return this.source(path, name).setData(source);
   }
 
   this.getSource = function (path) { return DataGraph.getSource(path); }
 
-  this.source = function(etype, name, data){
+  this.source = function (etype, name, data) {
     let path = etype + "." + (name || "temp");
     let root;
-    if(Object.prototype.toString.call(etype) !== "[object String]"){
+    if (Object.prototype.toString.call(etype) !== "[object String]") {
       const m = VistaApp.icontainer.ResolveClass(etype);
       path = m.etype + "." + name;
     }
-    else if(etype.indexOf(':')>-1)
+    else if (etype.indexOf(':') > -1)
       root = new Graph(etype).root;
 
     root = DataGraph.findOrCreateGraph(path);
 
-    if(data)
+    if (data)
       root.setData(data)
 
     return root;
@@ -430,7 +457,7 @@ export function DataModel(etype, op) {
       opt = op;
 
     const values = query.split(':');
-//new Graph(DataGraph.getSchema(p), params, permanent)
+    //new Graph(DataGraph.getSchema(p), params, permanent)
     /*let p = new SourcePath(values[1].trim() + '.' + values[0].trim()); // gestire anche condition con path?
     
     const graph = 
@@ -469,7 +496,7 @@ export function Context(name) {
   this.elements = {};
   this.controls = new Map();
   this.app = null;
-
+  this.state = new Map();
   this.inject = true;
 
   this.registerElement = function (name, element) {
@@ -495,9 +522,56 @@ export function Context(name) {
     return this.controls.get(controller);
   }
 
+  /**
+   * 
+   * @param {function } controller 
+   */
+  this.getController = function (skin, controller) {
+    if (!skin) return null;
+    if (!this.controls.has(skin)) {
+      const c = VistaApp.icontainer.ResolveClass(Controller);
+      controller(c);
+      c.contextid = this.name;
+      c.context = this;
+      this.controls.set(skin, c);
+    }
+    return this.controls.get(skin);
+  }
+
+  this.setController = function (skin, controller, locked) {
+    if (!locked || !this.controls.has(skin)) {
+      const c = VistaApp.icontainer.ResolveClass(Controller);
+      controller(c);
+      c.contextid = this.name;
+      c.context = this;
+      this.controls.set(skin, c);
+      return c;
+    }
+    return null;
+  }
+
+  this.register = function (skin, model) {
+    let s = this.state.get(skin);
+    if (!s) {
+      s = new Set();
+      s
+      this.state.set(skin, s);
+    }
+    //model.index = s.size;
+    s.add(model);
+  }
+
+  this.unregister = function (skin, model) {
+    if (this.state.has(skin))
+      this.state.get(skin).delete(model);
+    else
+      console.log("WARNING UNREGISTER SKIN NOT FOUND");
+  }
+
   this.dispose = function () {
     messenger.UnscribeContext(this.name);
     this.controls.clear();
+    this.state.clear();
     /*for (let key of this.controls.keys()){
         key._model = null;
     }*/

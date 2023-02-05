@@ -552,26 +552,45 @@ DataSource.FromNode = function (data, node) {
   return new DataSource(data, node);
 }
 
-export function DataSource(source, node, enode) {
+export function DataSource(source, node, parent) {
   this.data = source;
   /**
    * @type {GraphNode}
    */
   this.node = node || new GraphNode("temp");
 
-  if (enode)
-    this.node.etype = enode;
+  this.parent = parent;
 
   this.get = function (name) {
     if (!name) {
-      /*let d = this.data;
-      if (Array.isArray(d))
-        d = [...d]; 
-      else d = { ...d };*/
-      return new DataSource(this.data, this.node);
+      return this.clone();
     }
-    return new DataSource(this.data ? this.data[name] : null, this.node?.getChild(name))
+    return new DataSource(this.data ? this.data[name] : null, this.node?.getChild(name), this.data);
   }
+
+  this.getAt = function (index) {
+    if(this.data && Array.isArray(this.data) && this.data.length>index){
+      return new DataSource(this.data[index], this.node, this.parent);
+    }
+    return this.clone();
+  }
+
+  this.map = function(callback){
+    let ar;
+    if(this.data){
+      let data = this.data;
+      if(!Array.isArray(data)){
+        data = [this.data];
+      }
+      ar = [];
+      for (let k = 0; k < data.length; k++) {
+        ar.push(callback(new DataSource(data[k], this.node, this.parent), k));
+      }
+    }
+    return ar;
+  }
+
+  this.clone = () => new DataSource(this.data, this.node, this.parent);
 
   this.getLast = function(name){
     const ds = this.get(name);
@@ -592,9 +611,11 @@ export function DataSource(source, node, enode) {
       }
       else d = { ...d };
     }
+
     console.log("DS GET DATA", d);
-    if (d && mustarray && !Array.isArray(d)) {
-      d = [];
+
+    if (mustarray  && !Array.isArray(d)) {
+      d = d? [d] : [];
       if (path) this.data[path] = []; else this.data = [];
     }
 
@@ -602,7 +623,8 @@ export function DataSource(source, node, enode) {
   }
 
   this.getCollection = function (path) {
-    let d = null;
+    return this.getData(path, true);
+    /*let d = null;
     if (this.data) {
       d = path ? this.data[path] : this.data;
       if (Array.isArray(d)) {
@@ -620,7 +642,7 @@ export function DataSource(source, node, enode) {
       if (path) this.data[path] = []; else this.data = [];
     }
 
-    return d;
+    return d;*/
   }
 
   this.discendant = function (path) {
@@ -648,15 +670,21 @@ export function DataSource(source, node, enode) {
     }
   }
 
-  this.set = function (path, item, parent) {
+  /*this.set = function (path, item, parent) {
     parent = parent || this.data;
     const n = this.node?.discendant(path);
     if (n && parent) {
       n.addItem(item, parent);
     }
+  }*/
+  this.set = function (item, path) { 
+    this.node.formatAndSetData(item, this.parent, path); 
+    if(!this.data) this.data = this.parent? this.parent[this.node.name] : this.node.source;
   }
-
-  this.add = function (path, item, parent) { this.set(path, item, parent); }
+  this.add = function (item, path) { 
+    this.node.formatAndAddData(item, this.parent, path); 
+    if(!this.data) this.data = this.parent? this.parent[this.node.name] : this.node.source;
+  }
 }
 
 export function DataSourceGroup(source) {
@@ -979,7 +1007,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
     if(parent)
       this.bind(value);
 
-    this.clearMutation();
+    if(override)
+      this.clearMutation();
 
     if (format) {
       this.traverse((node, data, parent) => {
