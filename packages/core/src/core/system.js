@@ -88,6 +88,13 @@ export function Flow() {
       //TODO: Gestione di un block come ICommand => command.execute(params);
       result = running[k].action.apply(null, [value, params]);
       //console.log("FLOW-RESULT", result);
+      
+      if(control.stop){
+        delete control.stop;
+        reject(false);
+        break;
+      }
+
       if (!result) continue;
       else if (result instanceof Promise) {
         result = await result;
@@ -340,6 +347,8 @@ export function Controller() {
 
     return obj;
   }
+
+  this.StopFlow = function() {this.stop = true;}
 }
 
 export function EntityModel(vid) {
@@ -404,7 +413,7 @@ export function EntityModel(vid) {
     if (data)
       root.setData(data)
 
-    return root;
+    return new DataSource(data, root);
   }
 
   this.setItem = function (model, item) {

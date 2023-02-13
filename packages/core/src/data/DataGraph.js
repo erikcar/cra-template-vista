@@ -708,6 +708,12 @@ export function DataSource(source, node, parent) {
     this.node.formatAndAddData(item, this.parent, path);
     if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
   }
+  this.merge = function(){
+    if(this.data && !this.data.hasOwnProperty("id")) this.add(this.data); // && ! node.contain(this.data);
+  }
+  this.mutate = function(field, value){
+    if(this.node && this.data) this.node.mutate(field, value, this.data);
+  }
 }
 
 export function DataSourceGroup(source) {
