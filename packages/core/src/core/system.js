@@ -345,6 +345,7 @@ export function Controller() {
 export function EntityModel(vid) {
   this.vid = vid;
   this.control = null;
+  this.state = {__val: null, __refresh: null};
   this.read = function (m, f) {
     let model;
     if (f) {
@@ -357,12 +358,19 @@ export function EntityModel(vid) {
     }
   }
 
-  this.emit = function (intent, data, param) {
-    this.control.execute(intent, data, this, param);
+  this.emit = function (intent, data, param, source) {
+    this.control.execute(intent, data, source, this, param);
   }
 
   this.request = function (m, f) {
     return this.read(m, f);
+  }
+
+  this.initSchema = function (schema, validators){
+    if(!schema || !validators || ! Array.isArray(validators)) return null;
+    const obj = {}
+    validators.forEach((v) => v(schema, obj));
+    return obj;
   }
 
   this.getGlobal = function (key) {
@@ -412,8 +420,9 @@ export function EntityModel(vid) {
   }
 
   this.refresh = function (path) {
-    const n = DataGraph.findGraph(path);
-    if (n) n.notify();
+    this.state.__refresh(!this.state.__val);
+    /*const n = DataGraph.findGraph(path);
+    if (n) n.notify();*/
   }
 }
 

@@ -561,25 +561,43 @@ export function DataSource(source, node, parent) {
 
   this.parent = parent;
 
-  this.get = function (name) {
+  this.get = function (name, predicate) {
     if (!name) {
       return this.clone();
     }
-    return new DataSource(this.data ? this.data[name] : null, this.node?.getChild(name), this.data);
+
+    let data = this.data ? this.data[name] : null;
+
+    if(predicate)
+      data = this._filter(predicate, data);
+
+    return new DataSource(data, this.node?.getChild(name), this.data);
+  }
+
+  this._filter = function (predicate, data) {
+    if (!data) return data;
+    if (!Array.isArray(data))
+      data = [data];
+
+    return data.filter(predicate);
+  }
+
+  this.filter = function (predicate) {
+    return new DataSource(this._filter(predicate, this.data), this.node, this.parent);
   }
 
   this.getAt = function (index) {
-    if(this.data && Array.isArray(this.data) && this.data.length>index){
+    if (this.data && Array.isArray(this.data) && this.data.length > index) {
       return new DataSource(this.data[index], this.node, this.parent);
     }
     return this.clone();
   }
 
-  this.map = function(callback){
+  this.map = function (callback) {
     let ar;
-    if(this.data){
+    if (this.data) {
       let data = this.data;
-      if(!Array.isArray(data)){
+      if (!Array.isArray(data)) {
         data = [this.data];
       }
       ar = [];
@@ -592,10 +610,15 @@ export function DataSource(source, node, parent) {
 
   this.clone = () => new DataSource(this.data, this.node, this.parent);
 
-  this.getLast = function(name){
+  this.empty = function(){
+    if(Array.isArray(this.data)) return this.data.length === 0;
+    else return !this.data;
+  }
+
+  this.getLast = function (name) {
     const ds = this.get(name);
-    if(Array.isArray(ds.data) && ds.data.length>0){
-      ds.data = ds.data[ds.data.length-1];
+    if (Array.isArray(ds.data) && ds.data.length > 0) {
+      ds.data = ds.data[ds.data.length - 1];
     }
     return ds;
   }
@@ -614,8 +637,8 @@ export function DataSource(source, node, parent) {
 
     console.log("DS GET DATA", d);
 
-    if (mustarray  && !Array.isArray(d)) {
-      d = d? [d] : [];
+    if (mustarray && !Array.isArray(d)) {
+      d = d ? [d] : [];
       if (path) this.data[path] = []; else this.data = [];
     }
 
@@ -646,7 +669,7 @@ export function DataSource(source, node, parent) {
   }
 
   this.discendant = function (path) {
-    return this.node ? this.node.discendant(path): null; //?.datasource 
+    return this.node ? this.node.discendant(path) : null; //?.datasource 
   }
 
   this.CloneWith = function (data, path) {
@@ -677,13 +700,13 @@ export function DataSource(source, node, parent) {
       n.addItem(item, parent);
     }
   }*/
-  this.set = function (item, path) { 
-    this.node.formatAndSetData(item, this.parent, path); 
-    if(!this.data) this.data = this.parent? this.parent[this.node.name] : this.node.source;
+  this.set = function (item, path) {
+    this.node.formatAndSetData(item, this.parent, path);
+    if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
   }
-  this.add = function (item, path) { 
-    this.node.formatAndAddData(item, this.parent, path); 
-    if(!this.data) this.data = this.parent? this.parent[this.node.name] : this.node.source;
+  this.add = function (item, path) {
+    this.node.formatAndAddData(item, this.parent, path);
+    if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
   }
 }
 
@@ -873,19 +896,19 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return true;
   }
 
-  this.bind = function(obj){
-    if(!obj)
+  this.bind = function (obj) {
+    if (!obj)
       return obj; // Oppure obj = {} ???
 
-    if(Array.isArray(obj)){
+    if (Array.isArray(obj)) {
       for (let k = 0; k < obj.length; k++) {
         obj[k].__tolink__ = true;
       }
     }
-    else{
+    else {
       obj.__tolink__ = true;
     }
-    
+
     return obj;
   }
 
@@ -942,13 +965,13 @@ export function GraphNode(name, uid, parent, graph, etype) {
       if (mutated)
         this.Mutation.set(source.id, source); // Sempre vero che va aggiunto o solo se mutated?
 
-      if (parent && tolink){ //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
+      if (parent && tolink) { //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
         this.link.apply(parent, source, this); //Dovrei fare un reset delle rule già impostate se esitono
-        
-        if(source.hasOwnProperty("__tolink__"))
+
+        if (source.hasOwnProperty("__tolink__"))
           delete source.__tolink__;
-      } 
-        
+      }
+
       console.log("DEBUG-NODE", parent, source, this.link, this);
     }
   }
@@ -1004,10 +1027,10 @@ export function GraphNode(name, uid, parent, graph, etype) {
     if (!this.isRoot() && !parent)
       throw new Error("SET/ADD Data for Discendant Node must have PARENT reference.");
 
-    if(parent)
+    if (parent)
       this.bind(value);
 
-    if(override)
+    if (override)
       this.clearMutation();
 
     if (format) {
@@ -1288,7 +1311,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
 
       if (node.Mutation.size > 0) {
         source.Mutation = [];
-  
+
         let mutated;
         let data;
         node.Mutation.forEach(function (value, key) {
@@ -1311,8 +1334,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
     console.log("SAVE Node JSON: ", data);
     option.excludeParams = true;
 
-    if(parameters){
-      data = {Root: data, Value: parameters}
+    if (parameters) {
+      data = { Root: data, Value: parameters }
     }
 
     return Apix.call(option.queryOp, data, option).then((result) => {
@@ -2260,9 +2283,9 @@ export function EntityProxy(etype, target, node) {
     }
   }
 
-  this.setData = function(data){
+  this.setData = function (data) {
     this.target = data || {};
-    if(this.onTargetChanged)
+    if (this.onTargetChanged)
       this.onTargetChanged(this.target);
   }
 
