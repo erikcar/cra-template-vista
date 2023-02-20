@@ -80,13 +80,22 @@ export function AppModel() {
   export function UserModel() {
     DataModel.call(this, "users");
   
-    this.list = () => {
-      return this.ExecuteQuery(`list: [users] (itype>-1) {*, -O itype#tsurname#temail 
-      }`);
+    this.list = (condition) => {
+      if(condition) 
+        condition = ' && ' + condition ;
+      else
+        condition = '';
+
+      return this.ExecuteQuery('list: [users] (itype>-1 ' + condition + ' ) {*, -O itype#tsurname#temail }');
     }
 
     this.platformList = (permanent) => {
       return this.ExecuteApi(`plist: [users] {*}`, null, "platformuser", permanent);
+    }
+
+    this.partnerList = (permanent, itype) => {
+      itype = itype || 2;
+      return this.ExecuteApi(`partners: [users] {*}`, {itype: itype}, null, permanent);
     }
   
     this.profile = () => {

@@ -15,3 +15,4 @@ export {Apix} from "@essenza/webground";
 export {VistaApp, AppConfig} from "./core/Vista";
 export {Polling, sleep, NextAtSecond, BigData, RealTimeData, DateDiffDays, isString} from './core/util'
 export {DataGraph, GraphNode, DataSource, GraphLink, ExecuteApi, EntityProxy, GraphSchema} from "./data/DataGraph";
+export {syncle} from './core/support'

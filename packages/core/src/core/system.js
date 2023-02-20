@@ -1,5 +1,6 @@
 import { DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
 import { FileService } from "./Service";
+import { syncle } from "./support";
 import { VistaApp } from "./Vista";
 
 function breakFlow() { }
@@ -132,7 +133,7 @@ function Messenger() {
    * @param {function | string} emitter can be vmodel function or vid. if view has vid defined then is the emitter.
    * @param {function} condition 
    */
-  this.Subscribe = function (intent, action, emitter, context, condition, model, token) {
+  this.Subscribe = function (intent, action, emitter, context, condition, model, token, prepend) {
     /*if(intent === "POPUP-CONFIRM"){
       //console.trace("MESSENGER SUBSCRIBE", intent, emitter, context);
       debugger;
@@ -146,8 +147,11 @@ function Messenger() {
       this.intents[intent] = flow;
     }
 
-    if (typeof action === 'function')
-      flow.Append({ action: action, context: context, emitter: emitter, condition: condition, model: model, token: token });
+    if (typeof action === 'function'){
+      const block = { action: action, context: context, emitter: emitter, condition: condition, model: model, token: token };
+      prepend? flow.Prepend(block): flow.Append(block);
+    }
+      
     else {
       if (action.hasOwnProperty("before"))
         flow.Prepend({ action: action.before, before: true, context: context, emitter: emitter, consition: condition, model: model, token: token });
@@ -187,6 +191,16 @@ function Messenger() {
 
 const messenger = new Messenger();
 
+function StateCollection(models){
+  this.source = models;
+  this.firstOrDefault = function(){
+    if(this.source && this.source.length>0)
+      return this.source[0];
+    else
+      return null;
+  }
+}
+
 export function Controller() {
   this.skin = null;
   this.api = null;
@@ -225,11 +239,13 @@ export function Controller() {
   this.getState = function (skin) {
     skin = skin || this.skin;
     const state = this.context.state.get(skin);
-    return state ? [...state] : null;
+    return new StateCollection(state ? [...state] : null);
   };
 
+
+
   this.validate = async function (skin, key) {
-    let state = this.getState(skin);
+    let state = this.getState(skin).source;
     const result = { isValid: false, model: state };
     if (state) {
       if (state[0].form && state[0].form.hasOwnProperty(key)) {
@@ -250,8 +266,8 @@ export function Controller() {
     return result;
   }
 
-  this.Subscribe = function (intent, action, emitter, context, condition) {
-    messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.contextid);
+  this.Subscribe = function (intent, action, emitter, context, condition, prepend) {
+    messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.contextid, prepend);
   };
 
   this.publish = function (intent, value, data, model, parameters) {
@@ -266,7 +282,7 @@ export function Controller() {
     if (!actions) return;
     for (const key in actions) {
       if (Object.hasOwnProperty.call(actions, key)) {
-        this.Subscribe(key, actions[key], emitter, this.contextid)
+        this.Subscribe(key, actions[key], emitter, this.contextid, null, true)
       }
     }
   }
@@ -303,7 +319,7 @@ export function Controller() {
   }
 
   this.setSource = function (path, source, name) {
-    return this.source(path, name).setData(source);
+    return this.source(path, name, source);
     DataGraph.setSource(path, source).datasource;
   }
 
@@ -348,7 +364,9 @@ export function Controller() {
     return obj;
   }
 
-  this.StopFlow = function() {this.stop = true;}
+  this.StopFlow = ()=> BreakFlow;//function() {this.stop = true;}
+
+  this.getSyncle = () => syncle
 }
 
 export function EntityModel(vid) {
@@ -393,7 +411,7 @@ export function EntityModel(vid) {
   //this.setSource = function (path, source) { DataGraph.setSource(path, source); }
 
   this.setSource = function (path, source, name) {
-    return this.source(path, name).setData(source);
+    return this.source(path, name, source);
   }
 
   this.getSource = function (path) { return DataGraph.getSource(path); }
@@ -532,9 +550,9 @@ export function Context(name) {
     if (!controller) return null;
     if (!this.controls.has(controller)) {
       const c = VistaApp.icontainer.ResolveClass(Controller);
-      controller(c);
       c.contextid = this.name;
       c.context = this;
+      controller(c);
       this.controls.set(controller, c);
     }
     return this.controls.get(controller);
@@ -548,9 +566,9 @@ export function Context(name) {
     if (!skin) return null;
     if (!this.controls.has(skin)) {
       const c = VistaApp.icontainer.ResolveClass(Controller);
-      controller(c);
       c.contextid = this.name;
       c.context = this;
+      controller(c);
       this.controls.set(skin, c);
     }
     return this.controls.get(skin);
@@ -559,9 +577,9 @@ export function Context(name) {
   this.setController = function (skin, controller, locked) {
     if (!locked || !this.controls.has(skin)) {
       const c = VistaApp.icontainer.ResolveClass(Controller);
-      controller(c);
       c.contextid = this.name;
       c.context = this;
+      controller(c);
       this.controls.set(skin, c);
       return c;
     }

@@ -185,7 +185,9 @@ export const VistaApp = {
     
     setValue: function(name, value){
         VistaApp[name] = value;
-        VistaApp.current[name] = value;
+        if(VistaApp.current){
+            VistaApp.current[name] = value;
+        }  
     },
 
     init: function(navigator, controller, onlogin, popup) {

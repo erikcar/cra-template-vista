@@ -593,6 +593,10 @@ export function DataSource(source, node, parent) {
     return this.clone();
   }
 
+  this.at = function (index) {
+    return this.getAt(index);
+  }
+
   this.map = function (callback) {
     let ar;
     if (this.data) {
@@ -608,7 +612,7 @@ export function DataSource(source, node, parent) {
     return ar;
   }
 
-  this.clone = () => new DataSource(this.data, this.node, this.parent);
+  this.clone = (data) => new DataSource(data || this.data, this.node, this.parent);
 
   this.empty = function(){
     if(Array.isArray(this.data)) return this.data.length === 0;
@@ -647,25 +651,6 @@ export function DataSource(source, node, parent) {
 
   this.getCollection = function (path) {
     return this.getData(path, true);
-    /*let d = null;
-    if (this.data) {
-      d = path ? this.data[path] : this.data;
-      if (Array.isArray(d)) {
-        d = [...d];
-        if (!d[0])
-          d = [];
-      }
-      else {
-        d = [];
-        if (path) this.data[path] = []; else this.data = [];
-      }
-    }
-    else {
-      d = [];
-      if (path) this.data[path] = []; else this.data = [];
-    }
-
-    return d;*/
   }
 
   this.discendant = function (path) {
@@ -674,8 +659,20 @@ export function DataSource(source, node, parent) {
 
   this.CloneWith = function (data, path) {
     const n = path ? this.node.discendant(path) : this.node;
+    
     n.formatData(data);
     return new DataSource(data, n);
+  }
+//Significa bindare data, ovvero formattarla con il node ma aggiungerla o settarla solo al salvataggio compiuto
+//bisogna creare meccanismo automatico dopo node.save e segnare item con ad esempio __bind = {crud: 0} usato da utility
+//differenza con il node.bind e che qui restituisce un ds con data bindata
+  this.bind = function(data, unshift){ //può essere anche array???
+    
+    this.node.deepFormat(data, this.parent, true);
+
+    this.node.bind(data, {parent: this.parent, unshift: unshift});
+
+    return this.clone(data);
   }
 
   this.clear = function () {
@@ -693,13 +690,7 @@ export function DataSource(source, node, parent) {
     }
   }
 
-  /*this.set = function (path, item, parent) {
-    parent = parent || this.data;
-    const n = this.node?.discendant(path);
-    if (n && parent) {
-      n.addItem(item, parent);
-    }
-  }*/
+
   this.set = function (item, path) {
     this.node.formatAndSetData(item, this.parent, path);
     if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
@@ -902,8 +893,12 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return true;
   }
 
-  this.bind = function (obj) {
-    if (!obj)
+  this.bind = function (obj, parent) {
+    if(!this.binding) this.binding = new WeakMap();
+    
+    this.binding.set(obj, parent);
+
+   /* if (!obj)
       return obj; // Oppure obj = {} ???
 
     if (Array.isArray(obj)) {
@@ -915,17 +910,23 @@ export function GraphNode(name, uid, parent, graph, etype) {
       obj.__tolink__ = true;
     }
 
-    return obj;
+    return obj;*/
   }
 
+  this.deepFormat = function(data, parent, notrack){
+    this.traverse((node, data, parent) => {
+      node.formatData(data, parent, notrack);
+      
+    }, true, data, parent);
+  }
   /**
    * 
    * @param {*} data 
    * @param {*} parent 
    * @returns 
    */
-  this.formatData = function (data, parent) {
-    console.log("DEBUG-NODE", data);
+  this.formatData = function (data, parent, notrack) {
+    console.log("DEBUG-NODE", data, parent);
     if (!data) return;
 
     if (!Array.isArray(data))
@@ -968,20 +969,24 @@ export function GraphNode(name, uid, parent, graph, etype) {
         }*/
       }
 
-      if (mutated)
+      
+      if (!notrack && mutated)
         this.Mutation.set(source.id, source); // Sempre vero che va aggiunto o solo se mutated?
 
-      if (parent && tolink) { //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
+      if (parent){ // && tolink) { //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
         this.link.apply(parent, source, this); //Dovrei fare un reset delle rule già impostate se esitono
 
-        if (source.hasOwnProperty("__tolink__"))
-          delete source.__tolink__;
+      if(notrack && this.Mutation.has(source.id)){
+        this.Mutation.delete(source.id);
+      }
+        //TODO: check link prima di applicare
+        /*if (source.hasOwnProperty("__tolink__"))
+          delete source.__tolink__;*/
       }
 
       console.log("DEBUG-NODE", parent, source, this.link, this);
     }
   }
-
 
   /**
    * Solo per settare root source
@@ -1262,27 +1267,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
    */
   this.save = function (option, parameters) {
     option = DataGraph.formatOption(option, this.etype);
-    let data = {};/*JSON.stringify(this, (name, val) => {
-      // convert RegExp to string
-      if (name === "root" || name === "parent" || name === "graph" || name === "source" || name === "condition" || name === "source")
-        return undefined;
-      else if (name === "Mutation") {
-        if (val.size < 1)
-          return null; //Remote lib check for null???
-        else {
-          let mutation = [];
-          val.forEach(function (value, key) {
-            if (value.hasOwnProperty("__mutation"))
-              mutation.push(value.__mutation);
-          });
-          return mutation;
-        }
-      }
-      else {
-        return val; // return as is
-      }
-    }); */ //["name","uid","children","isCollection","Mutation","etype","identity","primarykey","link","pk","fk","path","direction","id","association","mutated"]);
-
+    let data = {};
     this.traverse((node, source, parent) => {
       if (parent) {
         if (!parent.hasOwnProperty("children"))
@@ -1347,9 +1332,30 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return Apix.call(option.queryOp, data, option).then((result) => {
       console.log("Node Save RESULT:", result);
       this.traverse((node) => {
+        if(result.data.mutation){
+          const  m = result.data.mutation[node.etype];
+          if(m){
+            m.forEach(el => {
+              if(el.index<0) {
+                const item = node.Mutation.get(el.index);
+                console.log("BIND-LOG-INDEX", el, item);
+                if(item) item.id = el.id;
+              } 
+            });
+          }
+        } 
+        
         node.Mutation.forEach(function (value, key) {
+          console.log("BIND-LOG", value, key);
+          if(node.binding && node.binding.has(value)){
+            console.log("BIND-LOG-IN", value, node, node.binding.get(value));
+            const binding = node.binding.get(value);
+            DataGraph.setItem(value, node, binding.parent, null, binding.unshift);
+            delete value.__bind__;
+          }
           delete value.__mutation;
         });
+        delete node.binding;
         node.Mutation.clear();
       }, true);
       this.refresh();
@@ -1900,7 +1906,7 @@ const DataGraph = {
     //se children hanno un channel diverso???
   },
 
-  setItem: function (item, node, parent, override) {
+  setItem: function (item, node, parent, override, unshift) {
     let name;
     const isCollection = node.isCollection;
     if (parent) {
@@ -1914,7 +1920,7 @@ const DataGraph = {
 
     if (isCollection && !override) {//in teoria non dovrebbe esistere questa ipotesi
       if (!parent[name]) parent[name] = [];
-      parent[name].push(item);
+      unshift? parent[name].unshift(item) : parent[name].push(item);
     }
     else
       parent[name] = item;

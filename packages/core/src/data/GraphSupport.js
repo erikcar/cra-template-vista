@@ -165,6 +165,12 @@ function MoreThen(field) {
   this.checker = function (item) { return item[this.field] > this.value; }
 }
 
+function LessThen(field) {
+  condition.call(this, field);
+  this.operator = "<";
+  this.checker = function (item) { return item[this.field] < this.value; }
+}
+
 function schemaParser(schema, isCollection, deep, condition, link) {
   if (isString(schema)) return schema;
   link = link || '';
@@ -347,9 +353,14 @@ function nodeParse(info) {
         val = "";
     },
     '<': function () {
-      node.name = val;
-      val = "";
+      info.condition = new LessThen(val);
       index++;
+      if(s[index] === '-'){
+        val="-";
+        index++;
+      }
+      else
+        val = "";
     },
     '=': function () {
       info.condition = new Equal(val);//{field: val, operator: '='};
