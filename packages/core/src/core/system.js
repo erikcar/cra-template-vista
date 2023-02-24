@@ -525,10 +525,11 @@ export function DataModel(etype, op) {
     }
   }
 }
-
+var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
-  this.name = name;
+  uuid++;
+  this.name = name + uuid;
   this.elements = {};
   this.controls = new Map();
   this.app = null;

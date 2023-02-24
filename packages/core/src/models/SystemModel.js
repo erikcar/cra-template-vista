@@ -103,7 +103,7 @@ export function AppModel() {
     }
 
     this.eprofile = (email) => {
-      return this.ExecuteApi("profile: users {*}", {email: email});
+      return this.ExecuteApi("profile: users {*}", {email: email}, "eprofile");
     }
 
   }
