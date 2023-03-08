@@ -1,4 +1,4 @@
-import { Apix, axiosChannel, isString } from "@essenza/webground";
+bimport { Apix, axiosChannel, isString } from "@essenza/webground";
 import { SqlGraph } from "./interpreters/ISql";
 import { checkGroup, checkToken, GraphParser, searchData } from "./GraphSupport";
 //import { openPopup } from "../components/Popup";
@@ -552,49 +552,223 @@ DataSource.FromNode = function (data, node) {
   return new DataSource(data, node);
 }
 
+export function Mutation() {
+  this.createSession = function (key, data) {
+
+  }
+}
+
+/**
+ *  * Binding
+ * DefaultBinding => Esiste solo se data is empty === a fare Add e lo fa solo se la prima volta trova DS.empty
+ * BindOnce => Ne esiste solo uno first o last
+ * Bind => bind an object to his parent
+ */
+
+export function Binding() {
+
+  this.bindings = new Map();
+
+  this.apply = function (source, parent) {
+
+    const key = source.key;
+
+    const bind = this.bindings[key];
+
+    if (bind) {
+      bind.parent = source.parent; //Aggiorno parent che potrebbe essere cambiato istanza ma no come id (primary key)
+
+      if (source.node.isCollction) {
+        source.data = source.data ? source.data.concat(bind.data) : bind.data;
+      }
+      else {
+        source.data = bind.data[0];
+      }
+    }
+  }
+
+  this.add = function (obj, source, unshift) {
+    if (!source.scalar) {
+
+      const key = source.key;
+
+      if (!this.bindings[key]) {
+        this.bindings[key] = { parent: source.parent, data: [] };
+      }
+
+      this.bindings[key].data.push(obj);
+
+      source.node.deepFormat(obj, source.parent, true);
+
+      obj.__bind = this.bindings[key];
+      if (unshift) obj.__unshift = undefined;
+    }
+  }
+
+  this.remove = function (obj, source) {
+    if (!source.scalar) {
+      const key = source.key;
+      const bind = this.bindings[key];
+      if (bind) {
+        const index = bind.data.findIndex((el) => el === obj);
+        if (index > -1) bind.data = bind.data.splice(index, 1);
+
+        if (bind.data.length === 0)
+          delete this.bindings[key];
+      }
+    }
+  }
+
+  this.bind = function (obj, source) {
+    if (source.scalar) {
+
+    }
+  }
+
+  this.unbind = function (obj, source) {
+    if (source.scalar) {
+
+    }
+  }
+
+}
+
+/**
+ * @param {*} source 
+ * @param {*} node 
+ * @param {*} parent 
+ * @property {boolean}  scalar 
+ * @property {boolean}  derived 
+ */
 export function DataSource(source, node, parent) {
+
+  //Creo set/get data che si comporta in base a value se è cambiato e aggiunge added e mutation
   this.data = source;
-  /**
-   * @type {GraphNode}
-   */
+
+  /** @type {GraphNode} */
   this.node = node || new GraphNode("temp");
 
   this.parent = parent;
 
-  this.get = function (name, predicate) {
-    if (!name) {
-      return this.clone();
-    }
+  /** @type {Binding} */
+  this.binding = null;
 
-    let data = this.data ? this.data[name] : null;
+  this.build = function (data, inode, iparent, derived) {
+    const ds = new DataSource(data, inode, iparent);
+    ds.binding = this.binding;
 
-    if(predicate)
-      data = this._filter(predicate, data);
+    if (derived)
+      ds.derived = true;
+    else
+      ds.bind();
 
-    return new DataSource(data, this.node?.getChild(name), this.data);
+    return ds;
   }
 
-  this._filter = function (predicate, data) {
+  this.get = function (name) {
+    if (!this.scalar)
+      return this.build(null, node.getChild(name), null, true);
+
+    return this.build(source ? source[name] : null, node.getChild(name), source);
+  }
+
+  this.getLast = function (name) {
+    const ds = this.get(name);
+    if (Array.isArray(ds.data) && ds.data.length > 0) {
+      ds.data = ds.data[ds.data.length - 1];
+    }
+    return ds;
+  }
+
+  this.discendant = function (path) {
+    return node.discendant(path);
+  }
+
+  this.clone = (data) => this.build(data || source, node, parent, this.derived);
+
+  /* BINDING SECTION*/
+
+  this.bind = function () {
+    this.binding.apply(this, this.parent);
+  }
+
+  this.defaultValue = function (value) {
+    if (!this.data) {
+      this.binding.add(value, this);
+      this.data = this.scalar ? value : [value];
+    }
+  }
+
+  this.temp = function (value, check) {
+    value.__temp__ = 'T';
+    const ds = this.clone();
+    ds.data = value;
+    ds.check = check || [];
+    return ds;
+  }
+//Fixed
+  this.always = function (value, check) {
+    if (!this.scalar) {
+      value.__temp__ = 'F'
+      this.data = this.data ? this.data.push(value) : [value];
+    }
+  }
+
+  this.add = function (value) {
+    if (!this.scalar) {
+      this.binding.add(value, this);
+    }
+  }
+  
+  this.remove = function (value) {
+    if (!this.scalar) {
+      this.binding.add(value, this);
+    }
+  }
+
+  this.set = function (value) {
+    if (this.scalar) {
+      this.data = value;
+    }
+  }
+
+  this.clear = function (value) {
+    if (this.scalar) {
+      this.data = value;
+    }
+  }
+
+  this.mutate = function (field, value, data) {
+    data = data || this.data;
+    if (data) {
+      if(data.hasOwnProperty('__temp__')){
+        data.__temp__ === 'F' ? this.binding.add(data) : this.node.deepFormat(data, this.parent);
+        delete data.__temp__;
+      }
+      this.node.mutate(field, value, data);
+    }
+  }
+
+  /* END BINDING SECTION*/
+
+  this._filter = function (predicate, data, find) {
     if (!data) return data;
     if (!Array.isArray(data))
       data = [data];
 
-    return data.filter(predicate);
+    return find ? data.find(predicate) : data.filter(predicate);
   }
 
-  this.filter = function (predicate) {
+  this.filter = function (predicate, defaultValue) {
+    let data = this._filter(predicate, this.data);
+    if (defaultValue && data.length === 0) data = Array.isArray(defaultValue) ? this._bind(defaultValue) : [this._bind(defaultValue)];
     return new DataSource(this._filter(predicate, this.data), this.node, this.parent);
   }
 
-  this.getAt = function (index) {
-    if (this.data && Array.isArray(this.data) && this.data.length > index) {
-      return new DataSource(this.data[index], this.node, this.parent);
-    }
-    return this.clone();
-  }
-
-  this.at = function (index) {
-    return this.getAt(index);
+  this.find = function (predicate, defaultValue) {
+    let data = this._filter(predicate, this.data, true);
+    if (defaultValue && !data) data = this._bind(defaultValue);
+    return new DataSource(data, this.node, this.parent);
   }
 
   this.map = function (callback) {
@@ -612,20 +786,14 @@ export function DataSource(source, node, parent) {
     return ar;
   }
 
-  this.clone = (data) => new DataSource(data || this.data, this.node, this.parent);
-
-  this.empty = function(){
-    if(Array.isArray(this.data)) return this.data.length === 0;
-    else return !this.data;
-  }
-
-  this.getLast = function (name) {
-    const ds = this.get(name);
-    if (Array.isArray(ds.data) && ds.data.length > 0) {
-      ds.data = ds.data[ds.data.length - 1];
+  this.at = function (index) {
+    if (this.data && Array.isArray(this.data) && this.data.length > index) {
+      return new DataSource(this.data[index], this.node, this.parent);
     }
-    return ds;
+    return this.clone();
   }
+
+  /**** DATA SECTION ******/
 
   this.getData = function (path, mustarray) {
     let d = null;
@@ -653,29 +821,9 @@ export function DataSource(source, node, parent) {
     return this.getData(path, true);
   }
 
-  this.discendant = function (path) {
-    return this.node ? this.node.discendant(path) : null; //?.datasource 
-  }
+  /**** END DATA SECTION ******/
 
-  this.CloneWith = function (data, path) {
-    const n = path ? this.node.discendant(path) : this.node;
-    
-    n.formatData(data);
-    return new DataSource(data, n);
-  }
-//Significa bindare data, ovvero formattarla con il node ma aggiungerla o settarla solo al salvataggio compiuto
-//bisogna creare meccanismo automatico dopo node.save e segnare item con ad esempio __bind = {crud: 0} usato da utility
-//differenza con il node.bind e che qui restituisce un ds con data bindata
-  this.bind = function(data, unshift){ //può essere anche array???
-    
-    this.node.deepFormat(data, this.parent, true);
-
-    this.node.bind(data, {parent: this.parent, unshift: unshift});
-
-    return this.clone(data);
-  }
-
-  this.clear = function () {
+  /*this.clear = function () {
     if (this.node && this.data) {
       //debugger;
       this.node.traverse((node, data) => {
@@ -688,24 +836,28 @@ export function DataSource(source, node, parent) {
         }
       }, true, this.data)
     }
-  }
-
-
-  this.set = function (item, path) {
-    this.node.formatAndSetData(item, this.parent, path);
-    if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
-  }
-  this.add = function (item, path) {
-    this.node.formatAndAddData(item, this.parent, path);
-    if (!this.data) this.data = this.parent ? this.parent[this.node.name] : this.node.source;
-  }
-  this.merge = function(){
-    if(this.data && !this.data.hasOwnProperty("id")) this.add(this.data); // && ! node.contain(this.data);
-  }
-  this.mutate = function(field, value){
-    if(this.node && this.data) this.node.mutate(field, value, this.data);
-  }
+  }*/
 }
+
+Object.defineProperty(DataSource.prototype, "key", {
+  get() {
+    return this.node.etype + (this.parent ? this.parent.id : 0);
+  },
+});
+
+Object.defineProperty(DataSource.prototype, "scalar", {
+  get() {
+    return !this.node.isCollection || this.__scalar;
+  },
+});
+
+Object.defineProperty(DataSource.prototype, "empty", {
+  get() {
+    if (Array.isArray(this.data)) return this.data.length === 0;
+    else return !this.data;
+  },
+});
+
 
 export function DataSourceGroup(source) {
   if (source) {
@@ -893,30 +1045,54 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return true;
   }
 
-  this.bind = function (obj, parent) {
-    if(!this.binding) this.binding = new WeakMap();
-    
-    this.binding.set(obj, parent);
+  this.binding = new Map();
 
-   /* if (!obj)
-      return obj; // Oppure obj = {} ???
+  this.bind = function (obj, parent, unshift) {
+    if (Array.isArray(parent)) return; //Si può fare bind solo se Esiste un parent
 
-    if (Array.isArray(obj)) {
-      for (let k = 0; k < obj.length; k++) {
-        obj[k].__tolink__ = true;
-      }
-    }
-    else {
-      obj.__tolink__ = true;
+    const id = parent ? parent.id : 0;
+
+    if (!this.binding.has(id)) {
+      this.binding.set(id, []);
     }
 
-    return obj;*/
+    this.binding.get(id).push(obj);
+    this.binding.set(obj, { parent: parent, unshift: unshift });
   }
 
-  this.deepFormat = function(data, parent, notrack){
+  this.bindOnce = function (obj, parent, unshift) {
+    if (Array.isArray(parent)) return; //Si può fare bind solo se Esiste un parent
+
+    const id = parent ? parent.id : 0;
+
+    let bind = this.binding[id];
+
+    if (!bind) {
+      bind = [];
+      this.binding[id] = bind;
+    }
+
+    if (!bind.hasBind) {
+      bind.hasBind = true;
+      bind.push(obj);
+      this.binding[obj] = { parent: parent, unshift: unshift }
+    }
+  }
+
+  this.unbind = function (obj) {
+
+  }
+
+  this.getBinding = function (parent) {
+    return Array.isArray(parent)
+      ? null
+      : this.binding.get(parent ? parent.id : 0);
+  }
+
+  this.deepFormat = function (data, parent, notrack) {
     this.traverse((node, data, parent) => {
       node.formatData(data, parent, notrack);
-      
+
     }, true, data, parent);
   }
   /**
@@ -969,16 +1145,16 @@ export function GraphNode(name, uid, parent, graph, etype) {
         }*/
       }
 
-      
+
       if (!notrack && mutated)
         this.Mutation.set(source.id, source); // Sempre vero che va aggiunto o solo se mutated?
 
-      if (parent){ // && tolink) { //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
+      if (parent) { // && tolink) { //è possibile capire se ha già link impostato? es quando aggiungo da un node o query dove data è già formattata
         this.link.apply(parent, source, this); //Dovrei fare un reset delle rule già impostate se esitono
 
-      if(notrack && this.Mutation.has(source.id)){
-        this.Mutation.delete(source.id);
-      }
+        if (notrack && this.Mutation.has(source.id)) {
+          this.Mutation.delete(source.id);
+        }
         //TODO: check link prima di applicare
         /*if (source.hasOwnProperty("__tolink__"))
           delete source.__tolink__;*/
@@ -1190,10 +1366,6 @@ export function GraphNode(name, uid, parent, graph, etype) {
     }, true);
   }
 
-  this.forceMutation = function () {
-
-  }
-
   this.checkMutation = function (item) {
     if (item && item.__mutation) {
       const obj = this.Mutation.get(item.id);
@@ -1307,15 +1479,21 @@ export function GraphNode(name, uid, parent, graph, etype) {
         let data;
         node.Mutation.forEach(function (value, key) {
           data = { id: value.id, tempkey: value.__tempkey, linked: value.__linked };
-          mutated = value.__mutation?.mutated;
-          if (mutated) {
-            data.mutated = {};
-            for (const key in mutated) {
-              if (Object.hasOwnProperty.call(mutated, key)) {
-                data.mutated[key] = value[key];
-              }
-            }
+          if (value.__mutation.remove) {
+            data.crud = 3;
             source.Mutation.push(data);
+          }
+          else {
+            mutated = value.__mutation?.mutated;
+            if (mutated) {
+              data.mutated = {};
+              for (const key in mutated) {
+                if (Object.hasOwnProperty.call(mutated, key)) {
+                  data.mutated[key] = value[key];
+                }
+              }
+              source.Mutation.push(data);
+            }
           }
         });
       }
@@ -1332,22 +1510,22 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return Apix.call(option.queryOp, data, option).then((result) => {
       console.log("Node Save RESULT:", result);
       this.traverse((node) => {
-        if(result.data.mutation){
-          const  m = result.data.mutation[node.etype];
-          if(m){
+        if (result.data.mutation) {
+          const m = result.data.mutation[node.etype];
+          if (m) {
             m.forEach(el => {
-              if(el.index<0) {
+              if (el.index < 0) {
                 const item = node.Mutation.get(el.index);
                 console.log("BIND-LOG-INDEX", el, item);
-                if(item) item.id = el.id;
-              } 
+                if (item) item.id = el.id;
+              }
             });
           }
-        } 
-        
+        }
+
         node.Mutation.forEach(function (value, key) {
           console.log("BIND-LOG", value, key);
-          if(node.binding && node.binding.has(value)){
+          if (node.binding && node.binding.has(value)) {
             console.log("BIND-LOG-IN", value, node, node.binding.get(value));
             const binding = node.binding.get(value);
             DataGraph.setItem(value, node, binding.parent, null, binding.unshift);
@@ -1404,20 +1582,24 @@ export function GraphNode(name, uid, parent, graph, etype) {
     }
   }
 
-  this.remove = function (index) {
-    if (isNaN(index))
-      index = index.id;
-
-    const source = this.isRoot() ? this.source : searchData(this.graph.root.source, index, this.path)?.parent[this.name];
-    if (Array.isArray(source)) {
-      for (var i = 0; i < source.length; i++) {
-        if (source[i].id === index) {
-          source.splice(i, 1);
-          break;
-        }
-      }
+  this.remove = function (item, parent) {
+    if (!item) return;
+    DataGraph.remove(item, this);
+    //se null lo fa comunque => rimuove elemento in root node 
+    if (parent !== undefined) {
+      DataGraph.deleteItem(item, this, parent);
+      this.refresh();
     }
-    this.refresh();
+  }
+
+  this.unremove = function (item, parent) {
+    if (!item) return;
+    DataGraph.unremove(item, this);
+    //se null lo fa comunque => add elemento in root node 
+    if (parent !== undefined) {
+      DataGraph.setItem(item, this, parent);
+      this.refresh();
+    }
   }
 
   this.notify = function () {
@@ -1920,7 +2102,7 @@ const DataGraph = {
 
     if (isCollection && !override) {//in teoria non dovrebbe esistere questa ipotesi
       if (!parent[name]) parent[name] = [];
-      unshift? parent[name].unshift(item) : parent[name].push(item);
+      unshift ? parent[name].unshift(item) : parent[name].push(item);
     }
     else
       parent[name] = item;
@@ -1940,17 +2122,48 @@ const DataGraph = {
   },
 
   deleteItem: function (item, node, parent) {
-    const el = parent[node.name];
-    if (Array.isArray(el)) {
-      for (let k = 0; k < el.length; k++) {
-        if (el[k].id === item.id) {
-          el.splice(k, 1);
-          break;
+    let el = parent ? parent[node.name] : node.source;
+    if (el) {
+      if (Array.isArray(el)) {
+        for (let k = 0; k < el.length; k++) {
+          if (el[k].id === item.id) {
+            el.splice(k, 1);
+            break;
+          }
         }
       }
+      else if (parent)
+        parent[node.name] = null;
+      else
+        node.source = null;
     }
-    else
-      parent[node.name] = null;
+  },
+
+  remove: function (obj, node) {
+    if (obj.id < 1) return;
+
+    let mutation = obj.__mutation;
+
+    if (!mutation) {
+      mutation = { id: obj.id, mutated: {}, count: 0 };
+      obj.__mutation = mutation;
+    }
+
+    mutation.remove = true;
+    if (!node.Mutation.has(obj.id)) node.Mutation.set(obj.id, obj);
+  },
+
+  unremove: function (obj, node) {
+    let mutation = obj.__mutation;
+
+    if (mutation) {
+      delete mutation.remove;
+
+      if (mutation.count === 0) {
+        if (node.Mutation.has(obj.id)) node.Mutation.delete(obj.id);
+        delete obj.__mutation;
+      }
+    }
   },
 
   mutate: function (field, value, obj) {

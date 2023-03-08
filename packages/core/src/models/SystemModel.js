@@ -5,9 +5,9 @@ export function SystemModel() {
   DataModel.call(this, "system");
 }
 
-export function AppModel() {
+export function AppModel(etype) {
     
-    DataModel.call(this, "app");
+    DataModel.call(this, etype || "app");
   
     this.login = (user, password) => {
       return this.ExecuteApi("login: app {*}", { username: user, password: password }, { apiUrl: AppConfig.serviceRoute });
