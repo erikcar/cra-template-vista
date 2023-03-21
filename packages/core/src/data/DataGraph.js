@@ -1,6 +1,7 @@
-bimport { Apix, axiosChannel, isString } from "@essenza/webground";
+import { Apix, axiosChannel, isString } from "@essenza/webground";
 import { SqlGraph } from "./interpreters/ISql";
 import { checkGroup, checkToken, GraphParser, searchData } from "./GraphSupport";
+import { ArrayRemove, isEmpty, isEmty } from "../core/util";
 //import { openPopup } from "../components/Popup";
 
 
@@ -567,7 +568,7 @@ export function Mutation() {
 
 export function Binding() {
 
-  this.bindings = new Map();
+  this.bindings = {};
 
   this.apply = function (source, parent) {
 
@@ -578,17 +579,17 @@ export function Binding() {
     if (bind) {
       bind.parent = source.parent; //Aggiorno parent che potrebbe essere cambiato istanza ma no come id (primary key)
 
-      if (source.node.isCollction) {
-        source.data = source.data ? source.data.concat(bind.data) : bind.data;
+      if (source.scalar) {
+        source.data = bind.data[0];
       }
       else {
-        source.data = bind.data[0];
+        source.data = source.data ? source.data.concat(bind.data) : bind.data;
       }
     }
   }
 
-  this.add = function (obj, source, unshift) {
-    if (!source.scalar) {
+  this.add = function (obj, source, unshift, force) {
+    //if (!source.scalar) {
 
       const key = source.key;
 
@@ -598,24 +599,22 @@ export function Binding() {
 
       this.bindings[key].data.push(obj);
 
-      source.node.deepFormat(obj, source.parent, true);
+      source.node.deepFormat(obj, source.parent, !force);
 
-      obj.__bind = this.bindings[key];
+      obj.__bind = { parent: source.parent }; //this.bindings[key];
       if (unshift) obj.__unshift = undefined;
-    }
+    //}
   }
 
   this.remove = function (obj, source) {
-    if (!source.scalar) {
-      const key = source.key;
-      const bind = this.bindings[key];
-      if (bind) {
-        const index = bind.data.findIndex((el) => el === obj);
-        if (index > -1) bind.data = bind.data.splice(index, 1);
+    const key = source.key;
+    const bind = this.bindings[key];
+    if (bind) {
+      const index = bind.data.findIndex((el) => el === obj);
+      if (index > -1) bind.data = bind.data.splice(index, 1);
 
-        if (bind.data.length === 0)
-          delete this.bindings[key];
-      }
+      if (bind.data.length === 0)
+        delete this.bindings[key];
     }
   }
 
@@ -630,12 +629,23 @@ export function Binding() {
 
     }
   }
+/**
+ * 
+ * @param {*} obj 
+ * @param {DataSource} source 
+ * @param {*} unshift 
+ */
+  this.format = function (obj, source, unshift) {
+    source.node.deepFormat(obj, source.parent, true);
+    obj.__bind = { parent: source.parent };
+    if (unshift) obj.__unshift = undefined;
+  }
 
 }
 
 /**
  * @param {*} source 
- * @param {*} node 
+ * @param {GraphNode} node 
  * @param {*} parent 
  * @property {boolean}  scalar 
  * @property {boolean}  derived 
@@ -653,15 +663,23 @@ export function DataSource(source, node, parent) {
   /** @type {Binding} */
   this.binding = null;
 
-  this.build = function (data, inode, iparent, derived) {
+  this.build = function (data, inode, iparent, derived, scalar) {
     const ds = new DataSource(data, inode, iparent);
     ds.binding = this.binding;
+    
 
-    if (derived)
+    if (derived){
       ds.derived = true;
-    else
+      ds.owner = this.owner;
+    }
+    else{
+      ds.owner = this;
       ds.bind();
+    }
+      
 
+    if (scalar)
+      ds.__scalar = true;
     return ds;
   }
 
@@ -669,7 +687,7 @@ export function DataSource(source, node, parent) {
     if (!this.scalar)
       return this.build(null, node.getChild(name), null, true);
 
-    return this.build(source ? source[name] : null, node.getChild(name), source);
+    return this.build(this.data ? this.data[name] : null, node.getChild(name), this.data);
   }
 
   this.getLast = function (name) {
@@ -684,7 +702,7 @@ export function DataSource(source, node, parent) {
     return node.discendant(path);
   }
 
-  this.clone = (data) => this.build(data || source, node, parent, this.derived);
+  this.clone = (data) => this.build(data || this.data, node, parent, this.derived, this.__scalar);
 
   /* BINDING SECTION*/
 
@@ -697,16 +715,17 @@ export function DataSource(source, node, parent) {
       this.binding.add(value, this);
       this.data = this.scalar ? value : [value];
     }
+    return this;
   }
 
-  this.temp = function (value, check) {
+  this.temp = function (value, unshift, check) {
     value.__temp__ = 'T';
-    const ds = this.clone();
-    ds.data = value;
+    const ds = this.build(value, this.node, this.parent, true, true);
     ds.check = check || [];
+    if (unshift) value.__unshift = true;
     return ds;
   }
-//Fixed
+  //Fixed
   this.always = function (value, check) {
     if (!this.scalar) {
       value.__temp__ = 'F'
@@ -714,15 +733,25 @@ export function DataSource(source, node, parent) {
     }
   }
 
-  this.add = function (value) {
+  this.add = function (value, unshift, force) {
     if (!this.scalar) {
-      this.binding.add(value, this);
+      if (this.binding)
+        this.binding.add(value, this, unshift, force);
+      if (!this.data) this.data = [];
+      this.data.push(value);
     }
   }
-  
-  this.remove = function (value) {
-    if (!this.scalar) {
-      this.binding.add(value, this);
+
+  this.remove = function (value, model) {
+    value = value || this.data;
+    if (!Array.isArray(value)) {
+      if (value.id < 0) {
+        this.binding.remove(value, this);
+        ArrayRemove(this.data, value);
+      }
+      else {
+        this.node.delete(value, this.parent);
+      }
     }
   }
 
@@ -741,13 +770,28 @@ export function DataSource(source, node, parent) {
   this.mutate = function (field, value, data) {
     data = data || this.data;
     if (data) {
-      if(data.hasOwnProperty('__temp__')){
-        data.__temp__ === 'F' ? this.binding.add(data) : this.node.deepFormat(data, this.parent);
+      if (data.hasOwnProperty('__temp__')) {
+        data.__temp__ === 'F' ? this.binding.add(data, this) : this.binding.format(data, this);
         delete data.__temp__;
       }
       this.node.mutate(field, value, data);
     }
   }
+
+  this.mutateParent = function (field, value) {
+    if(this.owner)
+      this.owner.mutate(field, value);
+    /*const data = this.parent;
+    if (data) {
+      if (data.hasOwnProperty('__temp__')) {
+        data.__temp__ === 'F' ? this.binding.add(data, this) : this.binding.format(data, this);
+        delete data.__temp__;
+      }
+      this.node.parent.mutate(field, value, data);
+    }*/
+  }
+
+
 
   /* END BINDING SECTION*/
 
@@ -759,16 +803,12 @@ export function DataSource(source, node, parent) {
     return find ? data.find(predicate) : data.filter(predicate);
   }
 
-  this.filter = function (predicate, defaultValue) {
-    let data = this._filter(predicate, this.data);
-    if (defaultValue && data.length === 0) data = Array.isArray(defaultValue) ? this._bind(defaultValue) : [this._bind(defaultValue)];
-    return new DataSource(this._filter(predicate, this.data), this.node, this.parent);
+  this.filter = function (predicate) {
+    return this.build(this._filter(predicate, this.data), this.node, this.parent, true);
   }
 
-  this.find = function (predicate, defaultValue) {
-    let data = this._filter(predicate, this.data, true);
-    if (defaultValue && !data) data = this._bind(defaultValue);
-    return new DataSource(data, this.node, this.parent);
+  this.find = function (predicate) {
+    return this.build(this._filter(predicate, this.data, true), this.node, this.parent, true, true);
   }
 
   this.map = function (callback) {
@@ -780,7 +820,7 @@ export function DataSource(source, node, parent) {
       }
       ar = [];
       for (let k = 0; k < data.length; k++) {
-        ar.push(callback(new DataSource(data[k], this.node, this.parent), k));
+        ar.push(callback(this.build(data[k], this.node, this.parent, true, true), k));
       }
     }
     return ar;
@@ -788,7 +828,7 @@ export function DataSource(source, node, parent) {
 
   this.at = function (index) {
     if (this.data && Array.isArray(this.data) && this.data.length > index) {
-      return new DataSource(this.data[index], this.node, this.parent);
+      return this.build(this.data[index], this.node, this.parent, true, true);
     }
     return this.clone();
   }
@@ -810,7 +850,7 @@ export function DataSource(source, node, parent) {
     console.log("DS GET DATA", d);
 
     if (mustarray && !Array.isArray(d)) {
-      d = d ? [d] : [];
+      d = d && !isEmpty(d) ? [d] : [];
       if (path) this.data[path] = []; else this.data = [];
     }
 
@@ -1129,7 +1169,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
         }
 
         for (const key in source) {
-          if (Object.hasOwnProperty.call(source, key) && !this.getChild(key) && key !== "__mutation" && key !== "id") {
+          if (Object.hasOwnProperty.call(source, key) && !this.getChild(key) && key.charAt(0) !== "_" && key !== "id") {
             source["__mutation"].mutated[key] = source[key];
             source["__mutation"].count++;
           }
@@ -1366,6 +1406,11 @@ export function GraphNode(name, uid, parent, graph, etype) {
     }, true);
   }
 
+  this.mutated = function(item, field){
+    if(!item || !item.__mutation) return false;
+    return item.__mutation.mutated.hasOwnProperty(field)
+  }
+
   this.checkMutation = function (item) {
     if (item && item.__mutation) {
       const obj = this.Mutation.get(item.id);
@@ -1525,11 +1570,11 @@ export function GraphNode(name, uid, parent, graph, etype) {
 
         node.Mutation.forEach(function (value, key) {
           console.log("BIND-LOG", value, key);
-          if (node.binding && node.binding.has(value)) {
-            console.log("BIND-LOG-IN", value, node, node.binding.get(value));
-            const binding = node.binding.get(value);
-            DataGraph.setItem(value, node, binding.parent, null, binding.unshift);
-            delete value.__bind__;
+          if (value.__bind) {
+            console.log("BIND-LOG-IN", value, node);
+            const binding = value.__bind;
+            DataGraph.setItem(value, node, binding.parent, null, value.__unshift);
+            delete value.__bind;
           }
           delete value.__mutation;
         });
@@ -1548,7 +1593,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
     });
   }
 
-  this.delete = function (items) {
+  this.delete = function (items, parent) {
     if (items) {
       if (!Array.isArray(items))
         items = [items];
@@ -1562,7 +1607,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
           : { id: item.id });
       }
       return Apix.call("api/jdelete", node, { excludeParams: true }).then(() => {
-        this.remove(items[0]);
+        this.remove(items[0], parent);
         /*const source = this.isRoot()?this.source : searchData(this.graph.root.source, items[0], this.path)?.parent[this.name];
         if(Array.isArray(source)){
           for( var i = 0; i < source.length; i++){ 
@@ -1582,14 +1627,15 @@ export function GraphNode(name, uid, parent, graph, etype) {
     }
   }
 
-  this.remove = function (item, parent) {
+  this.remove = function (item, parent, deferred) {
     if (!item) return;
-    DataGraph.remove(item, this);
+    if (deferred)
+      DataGraph.remove(item, this);
     //se null lo fa comunque => rimuove elemento in root node 
-    if (parent !== undefined) {
-      DataGraph.deleteItem(item, this, parent);
-      this.refresh();
-    }
+    //if (parent !== undefined) {
+    DataGraph.deleteItem(item, this, parent);
+    this.refresh();
+    //}
   }
 
   this.unremove = function (item, parent) {

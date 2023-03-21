@@ -1,4 +1,4 @@
-import { DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
+import { Binding, DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
 import { FileService } from "./Service";
 import { syncle } from "./support";
 import { VistaApp } from "./Vista";
@@ -431,7 +431,9 @@ export function EntityModel(vid) {
     if (data)
       root.setData(data)
 
-    return new DataSource(data, root);
+    const s = new DataSource(data, root);
+    s.binding = new Binding();
+    return s;
   }
 
   this.setItem = function (model, item) {

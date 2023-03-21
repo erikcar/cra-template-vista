@@ -2,14 +2,29 @@ export function sleep(timeout) {
     return new Promise((resolve) => setTimeout(resolve, timeout));
 }
 //Object.prototype.toString.call(variable) === '[object String]'
-export function isString(val){
+export function isString(val) {
     return typeof val === 'string' || val instanceof String;
 }
 
-export function DateDiffDays(date1, date2){
-    if(! (date1 instanceof Date))
+export function isEmpty(obj){
+    return obj // 👈 null and undefined check
+    && Object.keys(obj).length === 0
+    && Object.getPrototypeOf(obj) === Object.prototype
+}
+/**
+ * 
+ * @param {Array} ar 
+ * @param {*} item 
+ */
+export function ArrayRemove(ar, item) {
+    const index = ar.findIndex((el) => el === item);
+    if (index > -1) ar.splice(index, 1);
+}
+
+export function DateDiffDays(date1, date2) {
+    if (!(date1 instanceof Date))
         date1 = new Date();
-    if(! (date2 instanceof Date))
+    if (!(date2 instanceof Date))
         date2 = new Date();
 
     var Difference_In_Time = Math.abs(date2.getTime() - date1.getTime());
@@ -19,13 +34,13 @@ export function DateDiffDays(date1, date2){
 export function printImage(imagePath) {
     var width = window.innerWidth * 0.9;
     var height = window.innerHeight * 0.9;
-    var content = '<!DOCTYPE html>' + 
-                  '<html>' +
-                  '<head><title></title></head>' +
-                  '<body onload="window.focus(); window.print(); window.close();">' + 
-                  '<img src="' + imagePath + '" style="width: 100%;" />' +
-                  '</body>' +
-                  '</html>';
+    var content = '<!DOCTYPE html>' +
+        '<html>' +
+        '<head><title></title></head>' +
+        '<body onload="window.focus(); window.print(); window.close();">' +
+        '<img src="' + imagePath + '" style="width: 100%;" />' +
+        '</body>' +
+        '</html>';
     var options = "toolbar=no,location=no,directories=no,menubar=no,scrollbars=yes,width=" + width + ",height=" + height;
     var printWindow = window.open('', 'print', options);
     printWindow.document.open();
@@ -34,46 +49,46 @@ export function printImage(imagePath) {
     printWindow.focus();
 }
 
-export function NextAtSecond(second){
+export function NextAtSecond(second) {
     const s = new Date().getSeconds();
-    if(s<second)
-      return (second - s) * 1000;
+    if (s < second)
+        return (second - s) * 1000;
     else
-      return ((60-s) + second) * 1000;
+        return ((60 - s) + second) * 1000;
 }
 
-export function Polling(callback){
+export function Polling(callback) {
     this.callback = callback;
     this.time = null;
     this.second = null;
     this.break = false;
     this.timeout = null;
 
-    this.atSecond = function(second){
+    this.atSecond = function (second) {
         this.second = second;
         return this;
     }
 
-    this.every = function(millisecond){
+    this.every = function (millisecond) {
         this.time = millisecond;
         return this;
     }
 
-    this.intervall = function(){
+    this.intervall = function () {
         this.callback();
         this.timeout = setTimeout(this.intervall.bind(this), NextAtSecond(this.second));
     }
 
-    this.start = function(){
-        if(!this.callback) return;
+    this.start = function () {
+        if (!this.callback) return;
 
-        if(this.time)
+        if (this.time)
             this.timeout = setInterval(this.callback, this.time);
         else
             this.intervall();
     }
 
-    this.stop = function(){
+    this.stop = function () {
         clearTimeout(this.timeout);
     }
 }
@@ -85,39 +100,39 @@ export function BigData(offset, width) {
     this.inside = false;
     this.data = null;
     this.liteData = null;
-  
-    this.setSource = function (data) {
-      if (!data || !Array.isArray(data)) return data;
-      this.data = data;
-      this.liteMode = data.length > 10000;
-      this.inside = false;
-      this.liteData = null;
-      if (this.liteMode) {
-        this.liteData = data.filter((value, index) => index % this.offset === 0);
-        return this.liteData;
-      }
-      else
-        return data;
-    }
-  
-    this.getSource = function () {
-      if (!this.liteMode || this.inside) return this.data;
-      return this.liteData;
-    }
-  
-    this.isChanged = function (zoom) {
-      if (!this.liteMode) return false;
-      const inside = (zoom.end - zoom.start) < this.width;
-      if (inside !== this.inside) {
-        this.inside = inside;
-        return true;
-      }
-      else
-        return false;
-    }
-  }
 
-  export function RealTimeData(chart, data, request) {
+    this.setSource = function (data) {
+        if (!data || !Array.isArray(data)) return data;
+        this.data = data;
+        this.liteMode = data.length > 10000;
+        this.inside = false;
+        this.liteData = null;
+        if (this.liteMode) {
+            this.liteData = data.filter((value, index) => index % this.offset === 0);
+            return this.liteData;
+        }
+        else
+            return data;
+    }
+
+    this.getSource = function () {
+        if (!this.liteMode || this.inside) return this.data;
+        return this.liteData;
+    }
+
+    this.isChanged = function (zoom) {
+        if (!this.liteMode) return false;
+        const inside = (zoom.end - zoom.start) < this.width;
+        if (inside !== this.inside) {
+            this.inside = inside;
+            return true;
+        }
+        else
+            return false;
+    }
+}
+
+export function RealTimeData(chart, data, request) {
     if (!data?.source) return;
     this.store = data.source;
     this.ds = (new Date().getTime()) - 70000;

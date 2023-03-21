@@ -34,13 +34,14 @@ export function AppModel(etype) {
     }
   
     this.invitein = (user, route) => {
-      user.route = route || '';
-      const info = { tname: user.tname, tsurname: user.tsurname, temail: user.temail, itype: user.itype,  route: route || '' };
+      const data = this.getMutation(user);
+      data.route = route || '';
+      /*const info = { tname: user.tname, tsurname: user.tsurname, temail: user.temail, itype: user.itype,  route: route || '' };
       if(user.hasOwnProperty("tbusinessname"))
         info.tbusinessname = user.tbusinessname;
       if(user.hasOwnProperty("idplatform"))
-        info.idplatform = user.idplatform;
-      return this.ExecuteApi("invitein: app {*}", info, { apiUrl: AppConfig.serviceRoute });
+        info.idplatform = user.idplatform;*/
+      return this.ExecuteApi("invitein: app {*}", data, { apiUrl: AppConfig.serviceRoute });
     }
   
     this.passwordRequest = (email, route) => {
@@ -59,8 +60,10 @@ export function AppModel(etype) {
       return this.ExecuteApi("updateprofile: app {*}", this.getMutation(user), { apiUrl: AppConfig.serviceRoute });
     }
 
-    this.createProfile = (user) => {
-      return this.ExecuteApi("createprofile: app {*}", this.getMutation(user), { apiUrl: AppConfig.serviceRoute });
+    this.createProfile = (user, emailed) => {
+      const data = this.getMutation(user);
+      if(emailed) data.temail = user.temail;
+      return this.ExecuteApi("createprofile: app {*}", data, { apiUrl: AppConfig.serviceRoute });
     }
     
     this.validate = (token) => {
@@ -90,7 +93,7 @@ export function AppModel(etype) {
     }
 
     this.platformList = (permanent) => {
-      return this.ExecuteApi(`plist: [users] {*}`, null, "platformuser", permanent);
+      return this.ExecuteApi(`list: [users] {*}`, null, "platformuser", permanent);
     }
 
     this.partnerList = (permanent, itype) => {

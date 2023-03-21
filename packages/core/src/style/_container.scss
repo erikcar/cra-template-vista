@@ -34,4 +34,9 @@ body{
 @include make-map("radius", border-radius, $radius);
 @include make-map-double("radius-top", border-top-left-radius, border-top-right-radius,$radius);
 @include make-map("shadow", box-shadow, $shadows);
+
+@media print {
+    .shadow { box-shadow: none; }
+    .shadow-md { box-shadow: none; }
+}
 // scss-docs-end border
