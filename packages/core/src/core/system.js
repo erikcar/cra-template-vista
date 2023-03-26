@@ -527,6 +527,7 @@ export function DataModel(etype, op) {
     }
   }
 }
+
 var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
@@ -593,7 +594,6 @@ export function Context(name) {
     let s = this.state.get(skin);
     if (!s) {
       s = new Set();
-      s
       this.state.set(skin, s);
     }
     //model.index = s.size;
