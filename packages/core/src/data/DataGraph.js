@@ -1533,7 +1533,7 @@ export function GraphNode(name, uid, parent, graph, etype) {
             if (mutated) {
               data.mutated = {};
               for (const key in mutated) {
-                if (Object.hasOwnProperty.call(mutated, key)) {
+                if (Object.hasOwnProperty.call(source.TypeSchema, key)) {
                   data.mutated[key] = value[key];
                 }
               }

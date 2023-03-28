@@ -2,7 +2,7 @@
 import { Model } from "./core/Model"
 import { Vista } from "./core/Vista";*/
 
-const version = "1.0.0";
+const version = "1.1.2";
 
 export {version};
 

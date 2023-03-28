@@ -5,27 +5,18 @@ export function ApiService(defaultOption) {
   this.api = null;
   this.defaultOption = defaultOption;
 
-  this.ExecuteApi = (op, params, option) => {
+  this.CallApi = (op, params, option) => {
     option = option || defaultOption || {};
 
     this.api.formatOption(option);
 
-    return this.api.call(option.apiUrl + op, params, option).then((result) => {
+    const url = op.startsWith('http')? op : option.apiUrl + op;
+
+    return this.api.call(url, params, option).then((result) => {
       console.log("API SERVICE REQUEST RESULT" + result.data, result);
       return result.data;
     }, er => { console.log("ERROR API SERVICE", er); throw er; });
   };
-
-  this.call = (url, params, option) => {
-    option = option || defaultOption || {};
-
-    this.api.formatOption(option);
-
-    return this.api.call(url, params, option).then((result) => {
-      console.log("API SERVICE CALL RESULT" + result.data, result);
-      return result.data;
-    }, er => { console.log("ERROR API SERVICE CALL", er); throw er; });
-  }
 }
 
 

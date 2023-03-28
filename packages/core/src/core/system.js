@@ -1,5 +1,5 @@
 import { Binding, DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
-import { FileService } from "./Service";
+import { ApiService, FileService } from "./Service";
 import { syncle } from "./support";
 import { VistaApp } from "./Vista";
 
@@ -89,8 +89,8 @@ export function Flow() {
       //TODO: Gestione di un block come ICommand => command.execute(params);
       result = running[k].action.apply(null, [value, params]);
       //console.log("FLOW-RESULT", result);
-      
-      if(control.stop){
+
+      if (control.stop) {
         delete control.stop;
         reject(false);
         break;
@@ -147,11 +147,11 @@ function Messenger() {
       this.intents[intent] = flow;
     }
 
-    if (typeof action === 'function'){
+    if (typeof action === 'function') {
       const block = { action: action, context: context, emitter: emitter, condition: condition, model: model, token: token };
-      prepend? flow.Prepend(block): flow.Append(block);
+      prepend ? flow.Prepend(block) : flow.Append(block);
     }
-      
+
     else {
       if (action.hasOwnProperty("before"))
         flow.Prepend({ action: action.before, before: true, context: context, emitter: emitter, consition: condition, model: model, token: token });
@@ -191,10 +191,10 @@ function Messenger() {
 
 const messenger = new Messenger();
 
-function StateCollection(models){
+function StateCollection(models) {
   this.source = models;
-  this.firstOrDefault = function(){
-    if(this.source && this.source.length>0)
+  this.firstOrDefault = function () {
+    if (this.source && this.source.length > 0)
       return this.source[0];
     else
       return null;
@@ -364,7 +364,7 @@ export function Controller() {
     return obj;
   }
 
-  this.StopFlow = ()=> BreakFlow;//function() {this.stop = true;}
+  this.StopFlow = () => BreakFlow;//function() {this.stop = true;}
 
   this.getSyncle = () => syncle
 }
@@ -372,7 +372,7 @@ export function Controller() {
 export function EntityModel(vid) {
   this.vid = vid;
   this.control = null;
-  this.state = {__val: null, __refresh: null};
+  this.state = { __val: null, __refresh: null };
   this.read = function (m, f) {
     let model;
     if (f) {
@@ -393,8 +393,8 @@ export function EntityModel(vid) {
     return this.read(m, f);
   }
 
-  this.initSchema = function (schema, validators){
-    if(!schema || !validators || ! Array.isArray(validators)) return null;
+  this.initSchema = function (schema, validators) {
+    if (!schema || !validators || !Array.isArray(validators)) return null;
     const obj = {}
     validators.forEach((v) => v(schema, obj));
     return obj;
@@ -455,9 +455,10 @@ export function EntityModel(vid) {
   }
 }
 
-export function DataModel(etype, op) {
+export function DataModel(etype, defaultOption) {
+  ApiService.call(this, defaultOption);
+  
   this.etype = etype;
-  this.op = op;
 
   this.itemName = () => "item";
 
@@ -477,40 +478,20 @@ export function DataModel(etype, op) {
     return new Graph(null, params).fromSchema(this.etype, complete ? "item" : "list", condition, complete, schema).ExecuteQuery();
   };
 
-  this.ExecuteApi = function (query, params, op, permanent) {
+  this.GraphApi = function (schema, params, op, permanent) {
     let opt;
     if (typeof op === 'string')
       opt = { apiOp: op };
     else if (op)
       opt = op;
-
-    return new Graph(query, params, permanent).ExecuteApi(opt);
-  };
-
-  this.ExecuteApiWithSchema = function (query, params, op, permanent) {
-    let opt;
-    if (typeof op === 'string')
-      opt = { apiOp: op };
-    else if (op)
-      opt = op;
-
-    const values = query.split(':');
-    //new Graph(DataGraph.getSchema(p), params, permanent)
-    /*let p = new SourcePath(values[1].trim() + '.' + values[0].trim()); // gestire anche condition con path?
     
-    const graph = 
-    graph.isCollection = p.isCollection;
-    graph.deep = true;*/
-    const root = DataGraph.findOrCreateGraph(values[1].trim() + '.' + values[0].trim());
+    const path = schema.indexOf(':') > -1? schema : this.etype + '.' + schema;
+    const root = DataGraph.findOrCreateGraph(path, null);
     root.graph.params = params;
     root.graph.permanent = permanent;
     console.log("GRAPH-PARSE-WITH-SCHEMA", root.graph);
     return root.graph.ExecuteApi(opt);
   };
-
-  this.CallApi = function (name, params) {
-    return this.ExecuteApi(name + ": " + this.etype + " {*}", params, op[name]);
-  }
 
   this.getMutation = el => {
     if (Array.isArray(el)) {
@@ -527,6 +508,7 @@ export function DataModel(etype, op) {
     }
   }
 }
+
 var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
