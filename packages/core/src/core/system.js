@@ -457,7 +457,7 @@ export function EntityModel(vid) {
 
 export function DataModel(etype, defaultOption) {
   ApiService.call(this, defaultOption);
-  
+
   this.etype = etype;
 
   this.itemName = () => "item";
@@ -484,8 +484,15 @@ export function DataModel(etype, defaultOption) {
       opt = { apiOp: op };
     else if (op)
       opt = op;
-    
-    const path = schema.indexOf(':') > -1? schema : this.etype + '.' + schema;
+
+    let path;
+    if (schema.charAt(0) === '[') {
+      path = '[' + this.etype + ']' + '.' + schema.substring(1,schema.length-1);
+    }
+    else {
+      path = schema.indexOf(':') > -1 ? schema : this.etype + '.' + schema;
+    }
+
     const root = DataGraph.findOrCreateGraph(path, null);
     root.graph.params = params;
     root.graph.permanent = permanent;
@@ -509,11 +516,11 @@ export function DataModel(etype, defaultOption) {
   }
 }
 
-var uuid = 0;
+//var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
-  uuid++;
-  this.name = name + uuid;
+  //uuid++;
+  this.name = name;// + uuid;
   this.elements = {};
   this.controls = new Map();
   this.app = null;
@@ -575,7 +582,6 @@ export function Context(name) {
     let s = this.state.get(skin);
     if (!s) {
       s = new Set();
-      s
       this.state.set(skin, s);
     }
     //model.index = s.size;
