@@ -635,8 +635,9 @@ export function Binding() {
  * @param {DataSource} source 
  * @param {*} unshift 
  */
-  this.format = function (obj, source, unshift) {
-    source.node.deepFormat(obj, source.parent, true);
+  this.format = function (obj, source, unshift, notrack) {
+    if(notrack === undefined) notrack = true;
+    source.node.deepFormat(obj, source.parent, notrack);
     obj.__bind = { parent: source.parent };
     if (unshift) obj.__unshift = undefined;
   }
@@ -775,6 +776,14 @@ export function DataSource(source, node, parent) {
         delete data.__temp__;
       }
       this.node.mutate(field, value, data);
+    }
+  }
+
+  this.format = function(data){
+    data = data || this.data;
+    if (data.hasOwnProperty('__temp__')) {
+      data.__temp__ === 'F' ? this.binding.add(data, this) : this.binding.format(data, this, null, false);
+      delete data.__temp__;
     }
   }
 
@@ -1999,6 +2008,7 @@ const DataGraph = {
     console.log("DEBUG find Graph", context, path, graph);
     graph = context.getGraph(path.value);
     console.log("DEBUG find Graph", context, path, graph);
+    if(graph) graph.root.isCollection = path.isCollection;
     return graph?.root;
   },
 
