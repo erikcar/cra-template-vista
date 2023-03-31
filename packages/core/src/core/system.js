@@ -267,7 +267,7 @@ export function Controller() {
   }
 
   this.Subscribe = function (intent, action, emitter, context, condition, prepend) {
-    messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.contextid, prepend);
+    messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.context, prepend);
   };
 
   this.publish = function (intent, value, data, model, parameters) {
@@ -516,10 +516,11 @@ export function DataModel(etype, defaultOption) {
   }
 }
 
-//var uuid = 0;
+var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
-  //uuid++;
+  uuid++;
+  this.id = uuid;
   this.name = name;// + uuid;
   this.elements = {};
   this.controls = new Map();
@@ -596,7 +597,7 @@ export function Context(name) {
   }
 
   this.dispose = function () {
-    messenger.UnscribeContext(this.name);
+    messenger.UnscribeContext(this);
     this.controls.clear();
     this.state.clear();
     /*for (let key of this.controls.keys()){
