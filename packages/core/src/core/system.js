@@ -326,21 +326,23 @@ export function Controller() {
   this.getSource = function (path) { return DataGraph.getSource(path); }
 
   this.source = function (etype, name, data) {
-    let path = etype + "." + (name || "temp");
+    let path;
     let root;
     if (Object.prototype.toString.call(etype) !== "[object String]") {
       const m = VistaApp.icontainer.ResolveClass(etype);
-      path = m.etype + "." + name;
+      path = m.etype + "." + (name || "temp");
     }
-    else if (etype.indexOf(':') > -1)
-      root = new Graph(etype).root;
+    else
+      path = etype + "." + (name || "temp");
 
     root = DataGraph.findOrCreateGraph(path);
 
     if (data)
       root.setData(data)
 
-    return root;
+    const s = new DataSource(data, root);
+    s.binding = new Binding();
+    return s;
   }
 
   this.graph = function (etype) {
@@ -386,6 +388,8 @@ export function EntityModel(vid) {
   }
 
   this.emit = function (intent, data, param, source) {
+    if(param instanceof DataSource)
+      source = param;
     this.control.execute(intent, data, source, this, param);
   }
 
@@ -417,14 +421,14 @@ export function EntityModel(vid) {
   this.getSource = function (path) { return DataGraph.getSource(path); }
 
   this.source = function (etype, name, data) {
-    let path = etype + "." + (name || "temp");
+    let path;
     let root;
     if (Object.prototype.toString.call(etype) !== "[object String]") {
       const m = VistaApp.icontainer.ResolveClass(etype);
-      path = m.etype + "." + name;
+      path = m.etype + "." + (name || "temp");
     }
-    else if (etype.indexOf(':') > -1)
-      root = new Graph(etype).root;
+    else
+      path = etype + "." + (name || "temp");
 
     root = DataGraph.findOrCreateGraph(path);
 

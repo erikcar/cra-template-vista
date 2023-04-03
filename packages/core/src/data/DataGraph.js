@@ -635,11 +635,11 @@ export function Binding() {
  * @param {DataSource} source 
  * @param {*} unshift 
  */
-  this.format = function (obj, source, unshift, notrack) {
+  this.format = function (obj, source, notrack) {
     if(notrack === undefined) notrack = true;
     source.node.deepFormat(obj, source.parent, notrack);
     obj.__bind = { parent: source.parent };
-    if (unshift) obj.__unshift = undefined;
+    //if (unshift) obj.__unshift = undefined;
   }
 
 }
@@ -668,7 +668,6 @@ export function DataSource(source, node, parent) {
     const ds = new DataSource(data, inode, iparent);
     ds.binding = this.binding;
     
-
     if (derived){
       ds.derived = true;
       ds.owner = this.owner;
@@ -678,7 +677,6 @@ export function DataSource(source, node, parent) {
       ds.bind();
     }
       
-
     if (scalar)
       ds.__scalar = true;
     return ds;
@@ -759,6 +757,7 @@ export function DataSource(source, node, parent) {
   this.set = function (value) {
     if (this.scalar) {
       this.data = value;
+      this.binding.format(value, this, false);
     }
   }
 
@@ -782,7 +781,7 @@ export function DataSource(source, node, parent) {
   this.format = function(data){
     data = data || this.data;
     if (data.hasOwnProperty('__temp__')) {
-      data.__temp__ === 'F' ? this.binding.add(data, this) : this.binding.format(data, this, null, false);
+      data.__temp__ === 'F' ? this.binding.add(data, this) : this.binding.format(data, this,false);
       delete data.__temp__;
     }
   }
