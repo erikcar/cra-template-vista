@@ -272,7 +272,8 @@ export function Graph(query, params, permanent, context, deep) {
         data.parameters = this.parameters;
       return Apix.call(option.dataOp, data, option).then((result) => {
         console.log("DATA REQUEST" + root.etype + "." + root.name + " RESULT:", result);
-        root.setSource(result.data);
+        root.setSource(result.data); //Oppure root.source = result.data;
+
         /*root.traverse((node) => {
           DataGraph.setSource(node);
         }, true);*/
@@ -662,7 +663,7 @@ export function DataSource(source, node, parent) {
   this.parent = parent;
 
   /** @type {Binding} */
-  this.binding = null;
+  this.binding = !node || node.isRoot()? new Binding() : null;//new Binding();
 
   this.build = function (data, inode, iparent, derived, scalar) {
     const ds = new DataSource(data, inode, iparent);
@@ -923,7 +924,8 @@ export function GraphNode(name, uid, parent, graph, etype) {
   this.parent = parent;
   this.graph = graph;
   //this.source = null;
-  this.datasource = new DataSource(null, this);
+  //this.datasource = new DataSource(null, this);
+  this.data = null;
   this.condition = new nodeCondition();
   this.children = null;
   this.observers = [];
@@ -938,10 +940,11 @@ export function GraphNode(name, uid, parent, graph, etype) {
 
   Object.defineProperty(this, "source", {
     get() {
-      return this.datasource.data; //Remote lib check for null???
+      return new DataSource(this.data, this);
     },
     set(v) {
-      this.datasource = new DataSource(v, this)
+      //this.datasource = new DataSource(v, this);
+      this.data = v;
     }
   });
 
@@ -1321,42 +1324,6 @@ export function GraphNode(name, uid, parent, graph, etype) {
     return this;
   }
 
-  /*this.setDataAt = function (path, value, parent, format, notNotify) {
-    const n = this.discendant(path);
-    if (n) n.setData(value, parent, format, notNotify);
-    return this;
-  }
-
-  this.addDataAt = function (path, value, parent, format, notNotify) {
-    const n = this.discendant(path);
-    if (n) n.addData(value, parent, format, notNotify);
-    return this;
-  }
-
-  this.addData = function (item, ancestor, format, notnotify) { //Root o direttamente parent?? supportare entrambi??
-    if (!this.isRoot() && !parent)
-      throw new Error("SET/ADD Data for Discendant Node must have PARENT reference.");
-
-    if (!this.isCollection)
-      this.clearMutation();
-
-    this.traverse((node, data, parent) => {
-      const formatted = format || Array.isArray(data) ? data[0].hasOwnProperty("id") : data.hasOwnProperty("id");
-      node.formatData(data, parent);
-      return formatted;
-    }, true, item, parent);
-
-    DataGraph.setItem(item, this, ancestor);
-
-    if (!notnotify)
-      this.notify(); //Optional??? Come cambia source nel caso collection affichè ci sia update in useState...
-
-    console.log("DEBUG-NODE ADD SOURCE", item);
-
-    return this;
-  }*/
-
-
   this.addItem = function (item, ancestor, format, notnotify) { //Root o direttamente parent?? supportare entrambi??
 
     if (!this.isCollection)
@@ -1664,10 +1631,10 @@ export function GraphNode(name, uid, parent, graph, etype) {
     //Per ora non prevedo di usare un child direttamente come source, quindi aggiorno sempre da root tutto
     console.log("NOTIFY");
     if (this.isRoot() || this.source) {
-      this.datasource = new DataSource(this.source, this);//{ data: this.source, node: this };
-      console.log("NOTIFY ROOT", this.datasource, this.observers);
+      //this.datasource = new DataSource(this.source, this);//{ data: this.source, node: this };
+      console.log("NOTIFY ROOT", this.observers);
       for (let i = 0; i < this.observers.length; i++) {
-        this.observers[i](this.datasource);
+        this.observers[i](this.source);
       }
     }
     else {

@@ -1,126 +1,9 @@
 import { Binding, DataGraph, DataSource, Graph, SourcePath } from "../data/DataGraph";
-import { ApiService, FileService } from "./Service";
+import { Flow, Observer } from "./flow";
+import { ApiService, FileService } from "./service";
 import { syncle } from "./support";
+import { isString } from "./util";
 import { VistaApp } from "./Vista";
-
-function breakFlow() { }
-export const BreakFlow = new breakFlow();
-export function Flow() {
-  this.blocks = [];
-  this.map = null;
-  console.log("FLOW INIT");
-
-  this.Append = function (block, key) {
-    this.blocks.push(block);
-    console.log("FLOW APPEND", block, this.blocks);
-    if (key)
-      this.map[key] = block;
-  };
-
-  this.Prepend = function (block, key) {
-    this.blocks.unshift(block);
-    console.log("FLOW PREPEND", block, this.blocks);
-    if (key)
-      this.map[key] = block;
-  };
-
-  this.remove = function (token, emitter) {
-    this.blocks = this.blocks.filter((block) => { return (token === null || block.token !== token) && (emitter === undefined || block.emitter !== emitter) }) || [];
-    return this.blocks.length === 0;
-  }
-
-  this.runOld = async function (value, data, params, context, emitter, model, resolve, reject) {
-    if (!params) params = {};
-    params.data = data;
-    params.model = model;
-    //console.log("FLOW RUN", data, params, this.blocks);
-    let block; let running = []; let count = 0;
-    for (let j = 0; j < this.blocks.length; j++) {
-      block = this.blocks[j];
-      if ((!block.context || block.context === context) && (!block.emitter || block.emitter === emitter) && (!block.condition || block.condition())) {
-        if (model && model === block.model)
-          running.splice(count, 0, block);
-        else if (block.before) {
-          running.unshift(block);
-          count++;
-        }
-        else {
-          running.push(block);
-        }
-      }
-    }
-  }
-  //TODO: implementare supporto ordine esecuzione
-  this.run = async function (action, value, data, model, params, context, emitter, control, resolve, reject) {
-    if (!params) params = {};
-
-    if (data instanceof DataSource) {
-      params.node = data.node;
-      params.data = data.data;
-      params.source = data;
-    }
-    else
-      params.data = data;
-
-    params.app = control.app;
-    params.model = model || new EntityModel(); // === Model (è il model dell'istanza view)
-    params.control = control;
-    //console.log("FLOW RUN", data, params, this.blocks);
-    let block; let running = [];
-    if (action) running.push({ action: action });
-    for (let j = 0; j < this.blocks.length; j++) {
-      block = this.blocks[j];
-      if ((!block.context || block.context === context) && (!block.emitter || block.emitter === emitter) && (!block.condition || block.condition())) {
-        block.before
-          ? running.unshift(block)
-          : running.push(block);
-      }
-    }
-
-    console.log("FLOW RUNNING", running, this.blocks);
-
-    if (running.length === 0)
-      return resolve(null);
-
-    let result;
-
-    for (let k = 0; k < running.length; k++) {
-      let bf = false;
-      //TODO: Gestione di un block come ICommand => command.execute(params);
-      result = running[k].action.apply(null, [value, params]);
-      //console.log("FLOW-RESULT", result);
-
-      if (control.stop) {
-        delete control.stop;
-        reject(false);
-        break;
-      }
-
-      if (!result) continue;
-      else if (result instanceof Promise) {
-        result = await result;
-        if (!result) continue;
-        //result.then((r)=> { if(r instanceof breakFlow)  bf = true;  debugger;} )
-      }
-      if (bf || result instanceof breakFlow) {
-        reject(false);
-        break;
-      }
-      else if (result instanceof Error) {
-        reject(result);
-        break;
-      }
-      value = result;
-    }
-    resolve(result);
-  }
-
-  if (arguments && arguments.length > 0) {
-    for (let j = 0; j < arguments.length; j++) {
-      this.Append(arguments[j]);
-    }
-  }
-}
 
 function Messenger() {
 
@@ -128,17 +11,10 @@ function Messenger() {
 
   /**
    * @param {string} intent 
-   * @param {function | object} action if function is append else object define when and order ex . {before: function, after: function}, {before: {order: -2, action: function}}
    * @param {string} context 
    * @param {function | string} emitter can be vmodel function or vid. if view has vid defined then is the emitter.
-   * @param {function} condition 
    */
-  this.Subscribe = function (intent, action, emitter, context, condition, model, token, prepend) {
-    /*if(intent === "POPUP-CONFIRM"){
-      //console.trace("MESSENGER SUBSCRIBE", intent, emitter, context);
-      debugger;
-    }*/
-
+  this.Subscribe = function (intent, emitter, context, control) {
     let flow;
     if (this.intents.hasOwnProperty(intent))
       flow = this.intents[intent];
@@ -147,28 +23,22 @@ function Messenger() {
       this.intents[intent] = flow;
     }
 
-    if (typeof action === 'function') {
-      const block = { action: action, context: context, emitter: emitter, condition: condition, model: model, token: token };
-      prepend ? flow.Prepend(block) : flow.Append(block);
-    }
-
-    else {
-      if (action.hasOwnProperty("before"))
-        flow.Prepend({ action: action.before, before: true, context: context, emitter: emitter, consition: condition, model: model, token: token });
-      if (action.hasOwnProperty("after"))
-        flow.Append({ action: action.after, context: context, emitter: emitter, consition: condition, model: model, token: token });
-    }
+    return new Observer(flow, context, emitter, control);
   };
 
-  this.Publish = function (intent, action, value, data, model, parameters, context, emitter, control) {
-    //console.log("INTENT", intent, value, data, parameters, context, emitter, model, this.intents);
+  this.Publish = function (event, value, emitter, task, data, model, context, control) {
+    const info = {}; // data || {}
     const intents = this.intents;
     return new Promise(function (resolve, reject) {
-      const flow = intents[intent]
-        ? intents[intent]
+      const flow = intents[event]
+        ? intents[event]
         : new Flow();
-      //console.log("FLOW", intent, flow);
-      flow.run(action, value, data, model, parameters, context, emitter, control, resolve, reject);
+
+      info.data = data; //Eventualmente commentare
+      info.model = model;
+      info.state = model?.state;
+      info.control = control;
+      flow.run(task, value, info, context, emitter, resolve, reject);
     });
   };
 
@@ -201,6 +71,18 @@ function StateCollection(models) {
   }
 }
 
+const sourceHandler = {
+  get(target, prop) {
+    return DataGraph.findOrCreateGraph(target.etype + "." + prop).source;
+  },
+  set(target, prop, value) {
+    target.root = DataGraph.findOrCreateGraph(target.etype + "." + prop);
+    target.root.data = value; //Non è necessario formattare?
+    target.root.notify();
+    return true;
+  }
+};
+
 export function Controller() {
   this.skin = null;
   this.api = null;
@@ -211,16 +93,9 @@ export function Controller() {
   this.popup = null;
   this.model = new EntityModel();
   this.inject = true;
-  /*function (IApi, INavigator, IPopup) {
-    this.api = IApi;
-    this.navigator = INavigator;
-    this.popup = IPopup;
-  }*/
 
   //quando setto command guardo se per component ( o view ) associata al controller esiste override e apllico eventualmente
-  this.command = { NAVIGATE: (url, state) => { this.navigator(url, state) }, };
-  //Quando creo faccio injection dei service Un unico service instance e poi utilizzo questo per tutto o inject dei singoli service (Possibile fare tipo nect core individuare injection da constructor?) 
-  //this.service = null;
+  this.intent = { NAVIGATE: (url, state) => { this.navigator(url, state) }, };
 
   this.navigate = function (url, data) {
     /*if(typeof url !== 'string'){
@@ -241,8 +116,6 @@ export function Controller() {
     const state = this.context.state.get(skin);
     return new StateCollection(state ? [...state] : null);
   };
-
-
 
   this.validate = async function (skin, key) {
     let state = this.getState(skin).source;
@@ -266,25 +139,21 @@ export function Controller() {
     return result;
   }
 
-  this.Subscribe = function (intent, action, emitter, context, condition, prepend) {
-    messenger.Subscribe(intent, action, emitter === undefined ? this.skin : emitter, context === undefined ? this.contextid : context, condition, this, this.context, prepend);
+  this.Subscribe = function (intent, emitter, context) {
+    return messenger.Subscribe(intent, emitter === undefined ? this.skin : emitter, context === undefined ? this.context : context, this);
   };
 
-  this.publish = function (intent, value, data, model, parameters) {
-    messenger.Publish(intent, null, value, data, model, parameters, this.contextid, this.skin, this);
+  this.publish = function (intent, value, task, data, model) {
+    return messenger.Publish(intent, value, this.skin, task, data, model, this.context, this);
   }
 
-  this.execute = function (intent, value, data, model, parameters) {
-    messenger.Publish(intent, this.command[intent], value, data, model, parameters, this.contextid, this.skin, this).catch((r) => console.log(r));
+  this.execute = function (intent, value, data, model) {
+    return this.publish(intent, value, this.intent[intent], data, model).catch((r) => console.log(r));
   }
 
-  this.observe = function (emitter, actions) {
-    if (!actions) return;
-    for (const key in actions) {
-      if (Object.hasOwnProperty.call(actions, key)) {
-        this.Subscribe(key, actions[key], emitter, this.contextid, null, true)
-      }
-    }
+  this.observe = function (emitter, intent, context) {
+    if (!intent) return;
+    return this.Subscribe(intent, emitter, context);
   }
 
   this.ResolveClass = function (classType) {
@@ -318,31 +187,17 @@ export function Controller() {
     this.navigator(path, state);
   }
 
-  this.setSource = function (path, source, name) {
-    return this.source(path, name, source);
-    DataGraph.setSource(path, source).datasource;
+  this.source = function(model){
+    //TOBE: controllo se c'è un override per model
+    return new Proxy({etype: isString(model)? model : VistaApp.icontainer.ResolveClass(model).etype}, sourceHandler);
   }
 
-  this.getSource = function (path) { return DataGraph.getSource(path); }
+  this.getGlobal = function (key) {
+    return DataGraph.getGlobalState(key);
+  }
 
-  this.source = function (etype, name, data) {
-    let path;
-    let root;
-    if (Object.prototype.toString.call(etype) !== "[object String]") {
-      const m = VistaApp.icontainer.ResolveClass(etype);
-      path = m.etype + "." + (name || "temp");
-    }
-    else
-      path = etype + "." + (name || "temp");
-
-    root = DataGraph.findOrCreateGraph(path);
-
-    if (data)
-      root.setData(data)
-
-    const s = new DataSource(data, root);
-    s.binding = new Binding();
-    return s;
+  this.setGlobal = function (key, value) {
+    DataGraph.setGlobalState(key, value);
   }
 
   this.graph = function (etype) {
@@ -366,15 +221,53 @@ export function Controller() {
     return obj;
   }
 
-  this.StopFlow = () => BreakFlow;//function() {this.stop = true;}
+  //this.StopFlow = () => BreakFlow;//function() {this.stop = true;}
 
   this.getSyncle = () => syncle
 }
 
+
+//ViewModel / StateModel
 export function EntityModel(vid) {
   this.vid = vid;
   this.control = null;
   this.state = { __val: null, __refresh: null };
+  
+  this.parent = null;
+
+  this.ancestor = function(skin){
+    let p = this.parent;
+    while(p){
+      if(p.skin === skin) break;
+      p = p.parent;
+    }
+    return p;
+  }
+
+  this.rise = function(step){
+    let p = this;
+    for (let k = 0; k < step; k++) {
+      if(!p.parent) break; //Restituisco root
+      p = p.parent;
+    }
+    return p;
+  }
+
+  this.discendant = function(path){
+    let child = this.child;
+
+    for (let k = 0; k < path.length; k++) {
+      const node = path[k];
+      while(child){
+        if(child === node || child.vid === node) break;
+        child = child.brother;
+      }
+      if(!child) break;
+    }
+
+    return child;
+  }
+
   this.read = function (m, f) {
     let model;
     if (f) {
@@ -387,10 +280,9 @@ export function EntityModel(vid) {
     }
   }
 
-  this.emit = function (intent, data, param, source) {
-    if(param instanceof DataSource)
-      source = param;
-    this.control.execute(intent, data, source, this, param);
+  this.emit = function (intent, value, data) {
+    return this.control.execute(intent, value, data, this);
+    //messenger.Publish(intent, value, this.skin, task, data, model, this.context, this);
   }
 
   this.request = function (m, f) {
@@ -459,6 +351,7 @@ export function EntityModel(vid) {
   }
 }
 
+//EntityModel
 export function DataModel(etype, defaultOption) {
   ApiService.call(this, defaultOption);
 
@@ -520,6 +413,33 @@ export function DataModel(etype, defaultOption) {
   }
 }
 
+/*DataModel.register = function(type, etype, option){
+  type.prototype = new DataModel(etype, option);
+}*/
+
+function ModelMap(){
+  this.root = null;
+  this.parent = null;
+  this.last = null;
+
+  this.link = function(model){
+    if(this.parent){
+      if(this.parent.child){
+        model.brother = this.parent.child;
+      }
+      this.parent.child = model;
+      model.parent = this.parent;
+    }
+    
+    this.parent = model; //Lo faccio in modo separato?
+  }
+
+  this.unlink = function(model){
+    this.parent = model.parent;
+  }
+
+}
+
 var uuid = 0;
 export function Context(name) {
   //DataContext.call(this, name);
@@ -531,6 +451,8 @@ export function Context(name) {
   this.app = null;
   this.state = new Map();
   this.inject = true;
+
+  this.map = new ModelMap();
 
   this.registerElement = function (name, element) {
     this.elements[name] = element;
@@ -584,26 +506,26 @@ export function Context(name) {
   }
 
   this.register = function (skin, model) {
-    let s = this.state.get(skin);
-    if (!s) {
-      s = new Set();
-      this.state.set(skin, s);
-    }
-    //model.index = s.size;
-    s.add(model);
+    model.skin = skin;
+    this.map.link(model);
+    return model;
   }
 
   this.unregister = function (skin, model) {
-    if (this.state.has(skin))
-      this.state.get(skin).delete(model);
-    else
-      console.log("WARNING UNREGISTER SKIN NOT FOUND");
+    /*if(model === model.parent.child) model.parent.child = model.brother;
+    else{
+      let child = model.parent.child;
+      while(child.brother !== model){ //Getione caso non esiste come child(che dovrebbe essere impossibile)
+        child = child.brother;
+      }
+      child.brother = model.brother;
+    }*/
   }
 
   this.dispose = function () {
     messenger.UnscribeContext(this);
     this.controls.clear();
-    this.state.clear();
+    //this.state.clear();
     /*for (let key of this.controls.keys()){
         key._model = null;
     }*/
@@ -612,7 +534,7 @@ export function Context(name) {
   }
 }
 
-export function Observer(fields, emitter) {
+/*export function Observer(fields, emitter) {
   this.actions = [];
   this.fields = fields;
   this.emitter = emitter;
@@ -663,7 +585,7 @@ export function Observer(fields, emitter) {
     this.actions.push(action);
     return this;
   }
-}
+}*/
 
 /**
  * Osservable is associate with one data source (item or array) and osserve state change on that data
@@ -739,17 +661,3 @@ export function emitter(name) {
       this.observable.notify(info);
   }
 }
-
-/*export const VistaApp = {
-  icontainer: new Container(),
-  context: new Context("App"),
-  sessiom: { type: -1 }, //GUEST
-  logged: false,
-  initialized: false,
-  current: this,
-  setValue: (name, value) => {
-    VistaApp[name] = value;
-    VistaApp.current[name] = value;
-  },
-  model: new Model()
-};*/

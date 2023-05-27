@@ -7,8 +7,9 @@ const version = "1.1.2";
 export {version};
 
 export {Test} from "./intent/testIntent";
-export {BreakFlow, Flow, Controller, EntityModel, DataModel, Context, Observer, Observable} from "./core/system";
-export {ApiService, FileService} from "./core/Service";
+export {BreakFlow, Flow,  Observer} from "./core/flow";
+export { Controller, EntityModel, DataModel, Context,  Observable} from "./core/system";
+export {ApiService, FileService} from "./core/service";
 export { AppModel, SystemModel, UserModel } from "./models/SystemModel";
 export { AppService } from "./service/RequestService";
 export {Apix} from "@essenza/webground";
